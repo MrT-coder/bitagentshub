@@ -155,7 +155,8 @@ func printUsage(w io.Writer) {
   Opens the office: your running Claude Code agents as pixel sprites.
 
   bah daemon status|stop|serve   the background daemon that keeps agents running
-  bah theme init <name>          write the built-in theme to a folder to edit
+  bah theme init <name> [--from <theme>]
+                                 write the built-in theme, or another, to a folder to edit
   bah statusline install|uninstall
                                  let Claude Code hand its limits to the usage tab
 

@@ -23,8 +23,8 @@ func TestSubcommandsWithBadArgumentsSayHowToUseThem(t *testing.T) {
 	}{
 		{"daemon", runDaemon(nil), "usage: bah daemon serve|status|stop"},
 		{"daemon foo", runDaemon([]string{"foo"}), "usage: bah daemon serve|status|stop"},
-		{"theme", runTheme(nil), "usage: bah theme init <name>"},
-		{"theme init", runTheme([]string{"init"}), "usage: bah theme init <name>"},
+		{"theme", runTheme(nil), "usage: bah theme init <name> [--from <theme>]"},
+		{"theme init", runTheme([]string{"init"}), "usage: bah theme init <name> [--from <theme>]"},
 		{"statusline foo", runStatusline([]string{"foo"}), "usage: bah statusline [install|uninstall]"},
 	} {
 		if c.err == nil || !strings.Contains(c.err.Error(), c.want) {

@@ -44,6 +44,15 @@ folder next to your `config.toml`:
 | macOS | `~/Library/Application Support/bitagentshub/themes/my-theme/` |
 | Linux | `~/.config/bitagentshub/themes/my-theme/` (or under `$XDG_CONFIG_HOME`) |
 
+To start from another theme, name it with `--from`: one that comes with the
+office or one already in the themes folder. `gentle-ai` is the most complete
+starting point, since it sets the window colors and the 16 terminal colors
+too:
+
+```sh
+bah theme init my-theme --from gentle-ai
+```
+
 It refuses to write into a folder that already has files. Then select the theme in
 `config.toml` (same folder as `themes`) and restart the office:
 

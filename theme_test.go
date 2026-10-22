@@ -36,6 +36,40 @@ func TestThemeInitWritesTheBuiltinThemeAndRefusesToOverwrite(t *testing.T) {
 	}
 }
 
+func TestThemeInitFromAPresetCopiesItsWindowAndTerminalColors(t *testing.T) {
+	themes := filepath.Join(t.TempDir(), "themes")
+	dir, err := themeInitFrom(themes, "mine", "gentle-ai")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := office.LoadTheme(dir)
+	if err != nil {
+		t.Fatalf("the written theme should load: %v", err)
+	}
+	want, _ := office.Preset("gentle-ai")
+	if got.Name != "mine" {
+		t.Errorf("name = %q, want the folder's name", got.Name)
+	}
+	if got.UIBg != want.UIBg || got.UIText != want.UIText || got.UIAccent != want.UIAccent {
+		t.Errorf("ui = %v %v %v, want gentle-ai's", got.UIBg, got.UIText, got.UIAccent)
+	}
+	if got.Terminal != want.Terminal {
+		t.Errorf("terminal = %v, want gentle-ai's %v", got.Terminal, want.Terminal)
+	}
+	if _, err := themeInitFrom(themes, "other", "nope"); err == nil || !strings.Contains(err.Error(), "nope") {
+		t.Errorf("error = %v, want it to name the missing theme", err)
+	}
+	if _, err := os.Stat(filepath.Join(themes, "other")); err == nil {
+		t.Error("a missing source should not leave a folder behind")
+	}
+}
+
+func TestThemeInitTakesFromAfterTheName(t *testing.T) {
+	if err := runTheme([]string{"init", "mine", "--from"}); err == nil || !strings.Contains(err.Error(), "usage") {
+		t.Errorf("error = %v, want the usage", err)
+	}
+}
+
 func TestLoadingAMissingThemeSaysHowToCreateIt(t *testing.T) {
 	_, err := loadTheme(filepath.Join(t.TempDir(), "themes"), "nope")
 	if err == nil || !strings.Contains(err.Error(), "nope") || !strings.Contains(err.Error(), "theme init nope") {

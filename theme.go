@@ -12,16 +12,34 @@ import (
 	"github.com/MrT-coder/bitagentshub/internal/office"
 )
 
-// runTheme handles "bah theme init <name>".
+// runTheme handles "bah theme init <name> [--from <theme>]".
 func runTheme(args []string) error {
-	if len(args) != 2 || args[0] != "init" {
-		return errors.New("usage: bah theme init <name>")
+	usage := errors.New("usage: bah theme init <name> [--from <theme>]")
+	if len(args) < 2 || args[0] != "init" {
+		return usage
 	}
-	dir, err := themeInit(config.ThemesDir(config.DefaultPath()), args[1])
+	from := ""
+	switch {
+	case len(args) == 4 && args[2] == "--from":
+		from = args[3]
+	case len(args) != 2:
+		return usage
+	}
+	themes := config.ThemesDir(config.DefaultPath())
+	var dir string
+	var err error
+	if from == "" {
+		dir, err = themeInit(themes, args[1])
+	} else {
+		dir, err = themeInitFrom(themes, args[1], from)
+	}
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Wrote the built-in theme to %s.\n", dir)
+	if from == "" {
+		from = "built-in"
+	}
+	fmt.Printf("Wrote the %s theme to %s.\n", from, dir)
 	fmt.Printf("Edit it, then select it in %s with:\n\n[theme]\nname = %q\n", config.DefaultPath(), args[1])
 	return nil
 }
@@ -30,6 +48,16 @@ func runTheme(args []string) error {
 // for a theme of one's own.
 func themeInit(themes, name string) (string, error) {
 	return writeThemeAs(themes, name, office.BuiltinTheme())
+}
+
+// themeInitFrom writes the theme named from, one that comes with the office
+// or one in the themes folder, as themes/<name>.
+func themeInitFrom(themes, name, from string) (string, error) {
+	t, err := loadTheme(themes, from)
+	if err != nil {
+		return "", err
+	}
+	return writeThemeAs(themes, name, t)
 }
 
 // writeThemeAs writes t as themes/<name>, named after its folder; an

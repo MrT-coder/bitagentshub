@@ -409,7 +409,8 @@ editor = "nvim"                     # the default
 
 Colors and the characters' pixel art come from a theme: a folder of plain
 text files next to `config.toml`. `bah theme init <name>` writes
-the built-in theme there to start from, and `[theme] name = "<name>"` in
+the built-in theme there to start from (`--from gentle-ai`, or any other
+theme, starts from that one instead), and `[theme] name = "<name>"` in
 `config.toml` selects it. See [docs/themes.md](docs/themes.md) for the
 format, the letters each pixel uses and the rules a theme must follow.
 
