@@ -3,6 +3,17 @@
 Notable changes to BitAgentsHub, newest first. The office shows this file
 in the hub's About tab, so every release adds its section here.
 
+## v0.3.0 (2026-10-21)
+
+- Themes color the windows too: `[ui]` sets the background, text and
+  border of terminals, board and settings, and `[terminal] palette` recolors
+  the 16 ANSI colors programs ask for. Applying a theme recolors open
+  windows and terminals at once.
+- New `gentle-ai` theme, the Gentleman theme of Gentleman.Dots: its
+  terminal palette, its window colors and its colors on the agents.
+- `bah theme init <name> --from <theme>` starts a theme from another one,
+  such as `gentle-ai`, instead of the built-in theme.
+
 ## v0.2.0 (2026-10-21)
 
 - Marked as an early preview, tested on Windows with Claude Code, in the
