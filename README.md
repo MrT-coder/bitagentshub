@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/bah-banner.png" alt="BAH, Bit Agents Hub: a pixel-art office of agents at their desks, with a cat in the corner" width="720" />
+</p>
+
 # BitAgentsHub
 
 <a href="https://github.com/Gentleman-Programming/gentle-ai">
