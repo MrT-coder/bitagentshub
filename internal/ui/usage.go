@@ -109,22 +109,22 @@ func (m Model) drawUsage(buf *screen.Buffer) {
 			label = fmt.Sprintf("%d %s", n+1, label)
 		}
 		lx := buf.Text(cx, cy, pad(truncate(label, labelW), labelW), screen.Style{Fg: office.AgentColor(a.ID), HasFg: true, Bold: true})
-		lx = buf.Text(lx, cy, today, modalDim)
-		lx = bar(buf, lx, cy, barW, a.Today.Counted(), maxToday, modalBorder)
-		lx = buf.Text(lx, cy, " "+pad(office.FmtTokens(a.Today.Counted()), numW-1), modalText)
-		lx = buf.Text(lx, cy, session, modalDim)
-		lx = bar(buf, lx, cy, barW, a.Session.Counted(), maxSession, modalBorder)
-		buf.Text(lx, cy, " "+office.FmtTokens(a.Session.Counted()), modalText)
+		lx = buf.Text(lx, cy, today, modalDim())
+		lx = bar(buf, lx, cy, barW, a.Today.Counted(), maxToday, modalBorder())
+		lx = buf.Text(lx, cy, " "+pad(office.FmtTokens(a.Today.Counted()), numW-1), modalText())
+		lx = buf.Text(lx, cy, session, modalDim())
+		lx = bar(buf, lx, cy, barW, a.Session.Counted(), maxSession, modalBorder())
+		buf.Text(lx, cy, " "+office.FmtTokens(a.Session.Counted()), modalText())
 		cy++
 	}
 	if s := m.snap; s != nil && cy < bottom {
 		cy++
-		buf.Text(cx, cy, i18n.Tf("office today %s · week %s", office.FmtTokens(s.Today.Counted()), office.FmtTokens(s.Week.Counted())), modalText)
+		buf.Text(cx, cy, i18n.Tf("office today %s · week %s", office.FmtTokens(s.Today.Counted()), office.FmtTokens(s.Week.Counted())), modalText())
 		cy++
 	}
 	for _, r := range m.reports {
 		if r.Today >= 0 && cy < bottom {
-			buf.Text(cx, cy, i18n.Tf("%s today %s", r.Tool, office.FmtTokens(r.Today)), modalText)
+			buf.Text(cx, cy, i18n.Tf("%s today %s", r.Tool, office.FmtTokens(r.Today)), modalText())
 			cy++
 		}
 		for _, win := range r.Windows {
@@ -138,16 +138,16 @@ func (m Model) drawUsage(buf *screen.Buffer) {
 			case win.UsedPercent >= 70:
 				style = limitWarn
 			}
-			lx := buf.Text(cx, cy, pad(r.Tool+" "+win.Name, 16), modalText)
+			lx := buf.Text(cx, cy, pad(r.Tool+" "+win.Name, 16), modalText())
 			lx = bar(buf, lx, cy, barW, int64(win.UsedPercent*10), 1000, style)
-			buf.Text(lx, cy, i18n.Tf(" %3.0f%% · resets %s", win.UsedPercent, resetTime(win.ResetsAt)), modalText)
+			buf.Text(lx, cy, i18n.Tf(" %3.0f%% · resets %s", win.UsedPercent, resetTime(win.ResetsAt)), modalText())
 			cy++
 		}
 	}
 	if !claudeLimits && cy+1 < bottom {
 		// Claude tells its limits only to its status line, which is off until
 		// turned on in the settings tab.
-		buf.Text(cx, cy+1, truncate(i18n.T("Claude limits are off: turn them on in the settings tab."), inner), modalDim)
+		buf.Text(cx, cy+1, truncate(i18n.T("Claude limits are off: turn them on in the settings tab."), inner), modalDim())
 	}
 }
 
@@ -162,7 +162,7 @@ func bar(buf *screen.Buffer, x, y, w int, v, most int64, fill screen.Style) int 
 		n = 1 // any use at all shows
 	}
 	x = buf.Text(x, y, strings.Repeat("█", n), fill)
-	return buf.Text(x, y, strings.Repeat("░", w-n), modalDim)
+	return buf.Text(x, y, strings.Repeat("░", w-n), modalDim())
 }
 
 // resetTime reads as a clock time today, with the weekday otherwise.

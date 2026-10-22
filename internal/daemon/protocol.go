@@ -34,7 +34,7 @@ type Program interface {
 	Key(msg tea.KeyPressMsg)
 	Paste(text string)
 	Mouse(kind term.MouseKind, x, y int)
-	Draw(buf *screen.Buffer, x, y, w, h, scroll int, base screen.Style)
+	Draw(buf *screen.Buffer, x, y, w, h, scroll int, base screen.Style, pal screen.Palette)
 	Resize(w, h int)
 	Size() (w, h int)
 	ScrollbackLen() int
@@ -69,7 +69,7 @@ type Info struct {
 //	list | stop                    one-shot: answered, then the connection ends
 //	start  ID Dir Argv W H         one-shot
 //	attach                         the connection becomes a stream of the ops below
-//	view   ID W H Scroll Base      show this viewport of ID; rows are pushed as they change
+//	view   ID W H Scroll Base Palette  show this viewport of ID; rows are pushed as they change
 //	unview ID
 //	key    ID Key · paste ID Text · mouse ID Mouse X Y · resize ID W H · close ID
 type Request struct {
@@ -81,10 +81,13 @@ type Request struct {
 	W, H   int
 	Scroll int
 	Base   screen.Style
-	Key    tea.KeyPressMsg
-	Text   string
-	Mouse  term.MouseKind
-	X, Y   int
+	// Palette came without a Proto bump: gob drops it for a daemon that
+	// does not know it, which then draws the emulator's own colors.
+	Palette screen.Palette
+	Key     tea.KeyPressMsg
+	Text    string
+	Mouse   term.MouseKind
+	X, Y    int
 }
 
 // Event is what the daemon sends.

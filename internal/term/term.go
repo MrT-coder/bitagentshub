@@ -18,6 +18,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	uv "github.com/charmbracelet/ultraviolet"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/vt"
 	"github.com/charmbracelet/x/xpty"
 
@@ -349,8 +350,9 @@ func modifiedSeq(k uv.KeyPressEvent) string {
 
 // Draw paints the terminal into the w×h box at (x, y) of buf. scroll is
 // how many lines the view is moved up into the history; 0 is live, and then
-// the cursor is shown. Cells without colors of their own use base.
-func (s *Session) Draw(buf *screen.Buffer, x, y, w, h, scroll int, base screen.Style) {
+// the cursor is shown. Cells without colors of their own use base, and pal
+// recolors the 16 ANSI colors when set.
+func (s *Session) Draw(buf *screen.Buffer, x, y, w, h, scroll int, base screen.Style, pal screen.Palette) {
 	sb := s.emu.ScrollbackLen()
 	scroll = min(max(scroll, 0), sb)
 	top := sb - scroll // first logical line shown; history comes before the screen
@@ -365,7 +367,7 @@ func (s *Session) Draw(buf *screen.Buffer, x, y, w, h, scroll int, base screen.S
 			} else {
 				c = s.emu.CellAt(col, line-sb)
 			}
-			st := cellStyle(c, base)
+			st := cellStyle(c, base, pal)
 			if showCursor && line-sb == cur.Y && col == cur.X {
 				st.Reverse = !st.Reverse
 			}
@@ -382,16 +384,16 @@ func (s *Session) Draw(buf *screen.Buffer, x, y, w, h, scroll int, base screen.S
 	}
 }
 
-func cellStyle(c *uv.Cell, base screen.Style) screen.Style {
+func cellStyle(c *uv.Cell, base screen.Style, pal screen.Palette) screen.Style {
 	st := base
 	if c == nil {
 		return st
 	}
 	if c.Style.Fg != nil {
-		st.Fg, st.HasFg = rgb(c.Style.Fg), true
+		st.Fg, st.HasFg = paletteRGB(c.Style.Fg, pal), true
 	}
 	if c.Style.Bg != nil {
-		st.Bg, st.HasBg = rgb(c.Style.Bg), true
+		st.Bg, st.HasBg = paletteRGB(c.Style.Bg, pal), true
 	}
 	st.Bold = c.Style.Attrs&uv.AttrBold != 0
 	st.Reverse = c.Style.Attrs&uv.AttrReverse != 0
@@ -399,6 +401,23 @@ func cellStyle(c *uv.Cell, base screen.Style) screen.Style {
 		st.Fg = screen.RGB{R: st.Fg.R / 3 * 2, G: st.Fg.G / 3 * 2, B: st.Fg.B / 3 * 2}
 	}
 	return st
+}
+
+// paletteRGB is c, or its entry in pal when c is one of the 16 ANSI colors.
+func paletteRGB(c color.Color, pal screen.Palette) screen.RGB {
+	if pal.Set {
+		switch v := c.(type) {
+		case ansi.BasicColor:
+			if v < 16 {
+				return pal.C[v]
+			}
+		case ansi.IndexedColor:
+			if v < 16 {
+				return pal.C[v]
+			}
+		}
+	}
+	return rgb(c)
 }
 
 func rgb(c color.Color) screen.RGB {

@@ -37,7 +37,7 @@ type Herdr interface {
 type Terminal interface {
 	Key(msg tea.KeyPressMsg)
 	Paste(text string)
-	Draw(buf *screen.Buffer, x, y, w, h, scroll int, base screen.Style)
+	Draw(buf *screen.Buffer, x, y, w, h, scroll int, base screen.Style, pal screen.Palette)
 	Resize(w, h int)
 	Size() (w, h int)
 	ScrollbackLen() int
@@ -655,7 +655,7 @@ func (m Model) selectedText(s *selection) string {
 		return ""
 	}
 	buf := screen.New(r.w, r.h)
-	hs.term.Draw(buf, 0, 0, r.w, r.h, p.scroll, modalText)
+	hs.term.Draw(buf, 0, 0, r.w, r.h, p.scroll, modalText(), office.TerminalPalette())
 	var lines []string
 	s.rows(r.w, func(y, x0, x1 int) {
 		lines = append(lines, strings.TrimRight(buf.Row(y, x0, x1), " "))
@@ -767,12 +767,12 @@ func (m Model) focusPane(agentID string) (Model, tea.Cmd) {
 	return m, func() tea.Msg { return focusMsg{err: h.Focus(p.Target())} }
 }
 
-var (
-	modalBg     = screen.RGB{R: 0x16, G: 0x18, B: 0x1d}
-	modalText   = screen.Fg(screen.RGB{R: 0xdc, G: 0xdf, B: 0xe4}).WithBg(modalBg)
-	modalDim    = office.Dim.WithBg(modalBg)
-	modalBorder = screen.Fg(screen.RGB{R: 0x61, G: 0xaf, B: 0xef}).WithBg(modalBg)
-)
+// The windows' colors come from the active theme on every frame, so
+// applying a theme recolors open windows at once.
+func modalBg() screen.RGB       { return office.UI().Bg }
+func modalText() screen.Style   { c := office.UI(); return screen.Fg(c.Text).WithBg(c.Bg) }
+func modalDim() screen.Style    { return office.Dim.WithBg(modalBg()) }
+func modalBorder() screen.Style { c := office.UI(); return screen.Fg(c.Accent).WithBg(c.Bg) }
 
 // modalRect is the window: centered with office visible around it, or the
 // whole floor when maximized.
@@ -837,25 +837,25 @@ func (m Model) resizePanes() {
 
 // box paints a bordered modal with a title and a footer hint.
 func box(buf *screen.Buffer, x, y, w, h int, title, footer string) {
-	buf.Fill(x, y, w, h, ' ', modalText)
+	buf.Fill(x, y, w, h, ' ', modalText())
 	for i := 1; i < w-1; i++ {
-		buf.Text(x+i, y, "─", modalBorder)
-		buf.Text(x+i, y+h-1, "─", modalBorder)
+		buf.Text(x+i, y, "─", modalBorder())
+		buf.Text(x+i, y+h-1, "─", modalBorder())
 	}
 	for j := 1; j < h-1; j++ {
-		buf.Text(x, y+j, "│", modalBorder)
-		buf.Text(x+w-1, y+j, "│", modalBorder)
+		buf.Text(x, y+j, "│", modalBorder())
+		buf.Text(x+w-1, y+j, "│", modalBorder())
 	}
-	buf.Text(x, y, "┌", modalBorder)
-	buf.Text(x+w-1, y, "┐", modalBorder)
-	buf.Text(x, y+h-1, "└", modalBorder)
-	buf.Text(x+w-1, y+h-1, "┘", modalBorder)
+	buf.Text(x, y, "┌", modalBorder())
+	buf.Text(x+w-1, y, "┐", modalBorder())
+	buf.Text(x, y+h-1, "└", modalBorder())
+	buf.Text(x+w-1, y+h-1, "┘", modalBorder())
 	if title != "" {
-		titleStyle := modalText
+		titleStyle := modalText()
 		titleStyle.Bold = true
 		buf.Text(x+2, y, ansi.Truncate(title, max(0, w-4), "…"), titleStyle)
 	}
-	buf.Text(x+2, y+h-1, ansi.Truncate(footer, max(0, w-4), "…"), modalDim)
+	buf.Text(x+2, y+h-1, ansi.Truncate(footer, max(0, w-4), "…"), modalDim())
 }
 
 // paneTitle names a pane in the window's top border: the station number
@@ -896,7 +896,7 @@ func (m Model) drawWindow(buf *screen.Buffer) {
 	if win.max {
 		// A maximized pane is marked in the top right corner, as in herdr.
 		const mark = " z "
-		buf.Text(x+w-2-len(mark), y, mark, modalBorder)
+		buf.Text(x+w-2-len(mark), y, mark, modalBorder())
 		titleW = func(r rect) int { return max(0, r.w-3-len(mark)) }
 	}
 	for i, r := range m.paneRects() {
@@ -904,21 +904,21 @@ func (m Model) drawWindow(buf *screen.Buffer) {
 			continue // hidden behind the maximized pane
 		}
 		p := win.panes[i]
-		titleStyle := modalDim
+		titleStyle := modalDim()
 		if i == win.focus {
-			titleStyle = modalBorder
+			titleStyle = modalBorder()
 			titleStyle.Reverse, titleStyle.Bold = true, true
 		}
 		buf.Text(r.x+1, y, ansi.Truncate(m.paneTitle(), titleW(r), "…"), titleStyle)
 		if i > 0 && !win.max {
 			for j := 0; j < r.h; j++ {
-				buf.Text(r.x-1, r.y+j, "│", modalBorder)
+				buf.Text(r.x-1, r.y+j, "│", modalBorder())
 			}
-			buf.Text(r.x-1, y, "┬", modalBorder)
-			buf.Text(r.x-1, y+h-1, "┴", modalBorder)
+			buf.Text(r.x-1, y, "┬", modalBorder())
+			buf.Text(r.x-1, y+h-1, "┴", modalBorder())
 		}
 		if hs, ok := m.terms[p.key]; ok {
-			hs.term.Draw(buf, r.x, r.y, r.w, r.h, p.scroll, modalText)
+			hs.term.Draw(buf, r.x, r.y, r.w, r.h, p.scroll, modalText(), office.TerminalPalette())
 			if s := win.sel; s != nil && s.pane == i && s.moved {
 				s.rows(r.w, func(y, x0, x1 int) { buf.Invert(r.y+y, r.x+x0, r.x+x1) })
 			}
@@ -927,7 +927,7 @@ func (m Model) drawWindow(buf *screen.Buffer) {
 		lines := strings.Split(ansi.Wordwrap(win.status, max(10, r.w-4), " "), "\n")
 		top := r.y + max(0, (r.h-len(lines))/2)
 		for k, line := range lines {
-			buf.Text(r.x+max(0, (r.w-ansi.StringWidth(line))/2), top+k, line, modalText)
+			buf.Text(r.x+max(0, (r.w-ansi.StringWidth(line))/2), top+k, line, modalText())
 		}
 	}
 }

@@ -95,7 +95,7 @@ func init() {
 		// screen before and after, to check full-screen programs scroll.
 		if n, _ := strconv.Atoi(os.Getenv("PROBE_WHEEL")); n > 0 {
 			before := screen.New(100, 30)
-			s.Draw(before, 0, 0, 100, 30, 0, screen.Style{})
+			s.Draw(before, 0, 0, 100, 30, 0, screen.Style{}, screen.Palette{})
 			for i := 0; i < n; i++ {
 				s.Mouse(term.MouseWheelUp, 50, 10)
 				time.Sleep(50 * time.Millisecond)
@@ -108,7 +108,7 @@ func init() {
 			fmt.Println("--- after wheel ---")
 		}
 		buf := screen.New(100, 30)
-		s.Draw(buf, 0, 0, 100, 30, 0, screen.Style{})
+		s.Draw(buf, 0, 0, 100, 30, 0, screen.Style{}, screen.Palette{})
 		fmt.Printf("first output after %v, exited=%v, scrollback=%d, altscreen=%v\n", first.Round(time.Millisecond), s.Exited(), s.ScrollbackLen(), s.AltScreen())
 		for _, line := range buf.Lines() {
 			fmt.Println(line)

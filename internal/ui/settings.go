@@ -502,11 +502,11 @@ func (m Model) drawSettings(buf *screen.Buffer) {
 	w := min(fw-4, 90)
 	inner := max(1, w-4)
 	sw := m.setWin
-	heading := modalText
+	heading := modalText()
 	heading.Bold = true
 	focus := func(section int) screen.Style {
 		if sw.section == section {
-			st := modalBorder
+			st := modalBorder()
 			st.Bold = true
 			return st
 		}
@@ -520,9 +520,9 @@ func (m Model) drawSettings(buf *screen.Buffer) {
 	}
 	switch {
 	case m.settings == nil:
-		add(&top, i18n.T("Settings are not available here."), modalDim)
+		add(&top, i18n.T("Settings are not available here."), modalDim())
 	case !sw.loaded:
-		add(&top, i18n.T("Reading…"), modalDim)
+		add(&top, i18n.T("Reading…"), modalDim())
 	default:
 		add(&top, i18n.T("Theme"), focus(sectionTheme))
 		for i, name := range append([]string{""}, sw.themes...) {
@@ -531,29 +531,29 @@ func (m Model) drawSettings(buf *screen.Buffer) {
 			if name == sw.active {
 				mark = "● "
 			}
-			st := modalText
+			st := modalText()
 			if i == sw.sel && sw.section == sectionTheme {
 				st.Reverse = true
 			}
 			add(&list, mark+label, st)
 		}
 		if sw.naming {
-			add(&rest, i18n.T("new theme name: ")+sw.name+"█", modalBorder)
+			add(&rest, i18n.T("new theme name: ")+sw.name+"█", modalBorder())
 		}
-		add(&rest, "", modalText)
+		add(&rest, "", modalText())
 		add(&rest, i18n.T("Language"), focus(sectionLanguage))
 		for i, l := range i18n.Langs {
 			mark := "  "
 			if l == sw.language {
 				mark = "● "
 			}
-			st := modalText
+			st := modalText()
 			if i == sw.langSel && sw.section == sectionLanguage {
 				st.Reverse = true
 			}
 			add(&rest, mark+l.Name(), st)
 		}
-		add(&rest, "", modalText)
+		add(&rest, "", modalText())
 		add(&rest, i18n.T("Claude limits"), focus(sectionLimits))
 		state := i18n.T("unknown")
 		if sw.limitsOK {
@@ -562,13 +562,13 @@ func (m Model) drawSettings(buf *screen.Buffer) {
 				state = i18n.T("on")
 			}
 		}
-		add(&rest, i18n.Tf("Claude limits: %s (BitAgentsHub as Claude Code's status line)", state), modalText)
-		add(&rest, i18n.T("enter turns it on or off; settings.json is backed up before it changes."), modalDim)
+		add(&rest, i18n.Tf("Claude limits: %s (BitAgentsHub as Claude Code's status line)", state), modalText())
+		add(&rest, i18n.T("enter turns it on or off; settings.json is backed up before it changes."), modalDim())
 	}
-	add(&rest, "", modalText)
+	add(&rest, "", modalText())
 	add(&rest, i18n.T("Keys"), focus(sectionKeys))
 	for i, r := range keyRows {
-		st := modalText
+		st := modalText()
 		if i == sw.keySel && sw.section == sectionKeys {
 			st.Reverse = true
 		}
@@ -578,10 +578,10 @@ func (m Model) drawSettings(buf *screen.Buffer) {
 	// on a short floor the keys and blank lines above them go first.
 	var tail []settingsLine
 	if sw.configPath != "" {
-		add(&tail, "config "+leftTruncate(sw.configPath, inner-len("config ")), modalDim)
+		add(&tail, "config "+leftTruncate(sw.configPath, inner-len("config ")), modalDim())
 	}
 	if sw.status != "" {
-		add(&tail, sw.status, modalBorder)
+		add(&tail, sw.status, modalBorder())
 	}
 
 	// The theme list scrolls around the selection when the floor is short.

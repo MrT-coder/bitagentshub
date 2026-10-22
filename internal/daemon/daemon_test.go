@@ -62,7 +62,7 @@ func (p *fakeProg) Paste(text string)       { p.record("paste " + text) }
 func (p *fakeProg) Mouse(kind term.MouseKind, x, y int) {
 	p.record(fmt.Sprintf("mouse %d %d,%d", kind, x, y))
 }
-func (p *fakeProg) Draw(buf *screen.Buffer, x, y, w, h, scroll int, base screen.Style) {
+func (p *fakeProg) Draw(buf *screen.Buffer, x, y, w, h, scroll int, base screen.Style, pal screen.Palette) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	for i, l := range p.lines {
@@ -72,6 +72,9 @@ func (p *fakeProg) Draw(buf *screen.Buffer, x, y, w, h, scroll int, base screen.
 	}
 	if scroll > 0 {
 		buf.Text(x, y+h-1, fmt.Sprintf("scrolled %d", scroll), base)
+	}
+	if pal.Set {
+		buf.Text(x, y+h-1, fmt.Sprintf("red %02x%02x%02x", pal.C[1].R, pal.C[1].G, pal.C[1].B), base)
 	}
 }
 func (p *fakeProg) Resize(w, h int) {
@@ -157,7 +160,7 @@ func waitFor(t *testing.T, what string, cond func() bool) {
 
 func screenText(r *Remote, w, h int) string {
 	buf := screen.New(w, h)
-	r.Draw(buf, 0, 0, w, h, 0, screen.Style{})
+	r.Draw(buf, 0, 0, w, h, 0, screen.Style{}, screen.Palette{})
 	var lines []string
 	for y := 0; y < h; y++ {
 		var b strings.Builder
@@ -281,13 +284,42 @@ func TestScrollingAsksTheDaemonForThatViewport(t *testing.T) {
 	var got string
 	waitFor(t, "scrolled view", func() bool {
 		buf := screen.New(20, 3)
-		r.Draw(buf, 0, 0, 20, 3, 4, screen.Style{})
+		r.Draw(buf, 0, 0, 20, 3, 4, screen.Style{}, screen.Palette{})
 		var b strings.Builder
 		for _, sp := range buf.Spans(2) {
 			b.WriteString(sp.Text)
 		}
 		got = strings.TrimSpace(b.String())
 		return got == "scrolled 4"
+	})
+}
+
+func TestThePaletteReachesTheProgram(t *testing.T) {
+	f := serve(t, time.Minute)
+	if err := Start(f.addr, "a1", `C:\w`, []string{"pwsh"}, 20, 3); err != nil {
+		t.Fatal(err)
+	}
+	c, err := Attach(f.addr, make(chan string, 16))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	r := c.Terminal("a1")
+	f.prog(t, "a1").show("top")
+	shows(t, r, 20, 3, "top")
+	var pal screen.Palette
+	pal.Set = true
+	pal.C[1] = screen.RGB{R: 0xcb, G: 0x7c, B: 0x94}
+	var got string
+	waitFor(t, "view with the palette", func() bool {
+		buf := screen.New(20, 3)
+		r.Draw(buf, 0, 0, 20, 3, 0, screen.Style{}, pal)
+		var b strings.Builder
+		for _, sp := range buf.Spans(2) {
+			b.WriteString(sp.Text)
+		}
+		got = strings.TrimSpace(b.String())
+		return got == "red cb7c94"
 	})
 }
 

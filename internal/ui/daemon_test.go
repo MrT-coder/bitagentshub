@@ -33,7 +33,7 @@ func (p *daemonProg) Resize(int, int)                {}
 func (p *daemonProg) Size() (int, int)               { return 80, 24 }
 func (p *daemonProg) ScrollbackLen() int             { return 0 }
 func (p *daemonProg) AltScreen() bool                { return false }
-func (p *daemonProg) Draw(buf *screen.Buffer, x, y, w, h, _ int, base screen.Style) {
+func (p *daemonProg) Draw(buf *screen.Buffer, x, y, w, h, _ int, base screen.Style, _ screen.Palette) {
 	buf.Text(x, y, "running "+strings.Join(p.argv, " "), base)
 }
 func (p *daemonProg) Exited() bool {

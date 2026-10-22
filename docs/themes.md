@@ -1,16 +1,21 @@
 # Themes
 
-A theme changes the office's colors and how its people look. It is a folder
+A theme changes the office's colors, how its people look, and the colors of
+the windows and terminals. It is a folder
 of plain text files on your machine: nothing is downloaded, and you can share
 a theme by copying its folder.
 
-This first version covers the palettes, the room colors and the characters'
-poses. Desks, chairs, monitors and furniture are not themable yet.
+It covers the palettes, the room colors, the characters' poses, the windows
+(terminals, board, settings) and the terminals' 16 ANSI colors. Desks,
+chairs, monitors and furniture are not themable yet.
 
 ## Themes that come with the office
 
-Besides `default`, the office brings `night` (dark room, bright agents) and
-`retro` (warm walls, teal floor, 80s colors). Pick one in the hub's settings tab
+Besides `default`, the office brings `night` (dark room, bright agents),
+`retro` (warm walls, teal floor, 80s colors) and `gentle-ai` (the Gentleman
+theme of [Gentleman.Dots](https://github.com/Gentleman-Programming/Gentleman.Dots),
+the one gentle-ai is used with: its terminal palette, its background and text
+in the windows, and its colors on the agents). Pick one in the hub's settings tab
 (`s`) or in `config.toml`:
 
 ```toml
@@ -94,6 +99,17 @@ floor_a    = "#6b4f3a"   # the two plank colors
 floor_b    = "#634935"
 floor_seam = "#4e3a2b"
 carpets    = ["#3d5a6c", "#5c4a6b"]   # one per area, in turn
+
+[ui]
+background = "#16181d"   # windows: terminals, board, settings
+text       = "#dcdfe4"   # also terminal text without colors of its own
+accent     = "#61afef"   # window borders
+
+[terminal]
+# The 16 ANSI colors programs ask for: black, red, green, yellow, blue,
+# magenta, cyan, white, then their bright versions.
+palette = ["#06080f", "#cb7c94", "#b7cc85", "#ffe066", "#7fb4ca", "#ff8dd7", "#7aa89f", "#f3f6f9",
+           "#8a8fa3", "#de8fa8", "#d1e8a9", "#fff7b1", "#a3d4d5", "#ffaeea", "#7fb4ca", "#f3f6f9"]
 ```
 
 - Colors are `#rrggbb`. Lists must have at least one color.
@@ -101,6 +117,11 @@ carpets    = ["#3d5a6c", "#5c4a6b"]   # one per area, in turn
   runs. Changing a list's length can give agents a different look.
 - `agents` is more than a shirt: it is the color of the agent's name on the
   floor, in the station strip and in the hub's usage tab.
+- `[terminal] palette` takes exactly 16 colors. Without it, terminals keep
+  their usual colors (the built-in theme has none). It recolors only those
+  16; programs that ask for exact RGB colors or 256-color indexes past 15
+  keep them.
+- Applying a theme recolors open windows and terminals at once.
 
 ## Poses
 

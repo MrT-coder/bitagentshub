@@ -348,7 +348,7 @@ server: a tool without local limits shows usage only.
 `↑`/`↓` move and `tab` changes section:
 
 - **Theme**: the themes that come with the office (`default`, `night`,
-  `retro`) and every theme in the themes folder, the active one marked. `enter` applies the selected theme at once and saves it
+  `retro`, `gentle-ai`) and every theme in the themes folder, the active one marked. `enter` applies the selected theme at once and saves it
   in `config.toml`, changing only the `name` line of `[theme]` (comments and
   everything else stay). `n` asks for a name and copies the active theme
   there to edit.

@@ -33,7 +33,7 @@ func testSettings(t *testing.T, config string) (*officeSettings, string) {
 
 func TestSettingsListThemesThatHaveAManifest(t *testing.T) {
 	s, _ := testSettings(t, "")
-	if got, err := s.Themes(); err != nil || !reflect.DeepEqual(got, []string{"night", "retro"}) {
+	if got, err := s.Themes(); err != nil || !reflect.DeepEqual(got, []string{"night", "retro", "gentle-ai"}) {
 		t.Errorf("no themes folder: %v %v; want the office's own themes", got, err)
 	}
 	for _, name := range []string{"sunset", "noche"} {
@@ -45,7 +45,7 @@ func TestSettingsListThemesThatHaveAManifest(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := s.Themes()
-	if err != nil || !reflect.DeepEqual(got, []string{"night", "retro", "noche", "sunset"}) {
+	if err != nil || !reflect.DeepEqual(got, []string{"night", "retro", "gentle-ai", "noche", "sunset"}) {
 		t.Errorf("themes = %v, %v; want the folders with a theme.toml, sorted", got, err)
 	}
 }
@@ -153,7 +153,7 @@ func TestThemesThatComeWithTheOfficeAreListedAndApplied(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := s.Themes()
-	if err != nil || !reflect.DeepEqual(got, []string{"night", "retro", "mine"}) {
+	if err != nil || !reflect.DeepEqual(got, []string{"night", "retro", "gentle-ai", "mine"}) {
 		t.Errorf("themes = %v, %v; want the office's own first, then the folders", got, err)
 	}
 	if err := s.ApplyTheme("night"); err != nil {
@@ -174,7 +174,7 @@ func TestThemesThatComeWithTheOfficeAreListedAndApplied(t *testing.T) {
 
 func TestTheOfficesOwnThemeNamesAreReserved(t *testing.T) {
 	themes := filepath.Join(t.TempDir(), "themes")
-	for _, name := range []string{"night", "retro", "default"} {
+	for _, name := range []string{"night", "retro", "gentle-ai", "default"} {
 		if _, err := themeInit(themes, name); err == nil {
 			t.Errorf("theme init %s should refuse a name the office uses", name)
 		}

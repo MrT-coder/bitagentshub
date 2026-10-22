@@ -296,6 +296,16 @@ func TestLoadTheme_NamesTheFileFieldAndLineOfWhatItCannotUse(t *testing.T) {
 			"characters/typing.txt", 16, []string{"pose typing", "blank line"}},
 		{"unknown pose file", map[string]string{"theme.toml": manifest, "characters/sitting.txt": gridText(typing)},
 			"characters/sitting.txt", 0, []string{"unknown pose", "typing"}},
+		{"unknown ui key", map[string]string{"theme.toml": "[ui]\nborder = \"#000000\"\n"},
+			"theme.toml", 2, []string{"ui.border", "unknown"}},
+		{"terminal palette too short", map[string]string{"theme.toml": "[terminal]\npalette = [\"#000000\", \"#111111\"]\n"},
+			"theme.toml", 2, []string{"terminal.palette", "2 colors", "want 16"}},
+		{"terminal palette bad color", map[string]string{"theme.toml": "[terminal]\npalette = [" + strings.Repeat("\"#000000\", ", 15) + "\"#00000\"]\n"},
+			"theme.toml", 2, []string{"terminal.palette", "#00000", "#rrggbb"}},
+		{"terminal palette not a list", map[string]string{"theme.toml": "[terminal]\npalette = \"#000000\"\n"},
+			"theme.toml", 2, []string{"terminal.palette", "16 colors"}},
+		{"unknown terminal key", map[string]string{"theme.toml": "[terminal]\nfont = \"mono\"\n"},
+			"theme.toml", 2, []string{"terminal.font", "unknown"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -363,6 +373,45 @@ func TestWriteTheme_WritesWhatLoadThemeReadsBack(t *testing.T) {
 	}
 }
 
+func TestLoadTheme_ReadsTheTerminalPalette(t *testing.T) {
+	var colors []string
+	var want screen.Palette
+	want.Set = true
+	for i := range want.C {
+		want.C[i] = screen.RGB{R: uint8(i), G: 0x10, B: 0x20}
+		colors = append(colors, fmt.Sprintf("%q", formatColor(want.C[i])))
+	}
+	dir := writeFiles(t, map[string]string{
+		"theme.toml": "[terminal]\npalette = [" + strings.Join(colors, ", ") + "]\n",
+	})
+	got, err := LoadTheme(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Terminal != want {
+		t.Errorf("Terminal = %+v, want %+v", got.Terminal, want)
+	}
+	if BuiltinTheme().Terminal.Set {
+		t.Error("the built-in theme keeps the emulator's own terminal colors")
+	}
+}
+
+func TestWriteTheme_WritesTheTerminalPaletteBack(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "mine")
+	want, _ := Preset("gentle-ai")
+	want.Name = "mine"
+	if err := WriteTheme(dir, want); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LoadTheme(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("round trip differs:\n got %+v\nwant %+v", got, want)
+	}
+}
+
 func TestWriteTheme_RefusesAFolderThatIsNotEmpty(t *testing.T) {
 	dir := writeFiles(t, map[string]string{"notes.txt": "mine"})
 	if err := WriteTheme(dir, BuiltinTheme()); err == nil || !strings.Contains(err.Error(), dir) {
@@ -418,6 +467,20 @@ func TestSetTheme_ChangesAgentColors(t *testing.T) {
 	}
 	if got := LookOf("any").Shirt; got != c {
 		t.Errorf("LookOf shirt = %+v, want %+v", got, c)
+	}
+}
+
+func TestSetTheme_ChangesTheWindowAndTerminalColors(t *testing.T) {
+	th := BuiltinTheme()
+	th.UIBg, th.UIText, th.UIAccent = rgb(0x010203), rgb(0x040506), rgb(0x070809)
+	th.Terminal.Set = true
+	th.Terminal.C[1] = rgb(0x0a0b0c)
+	useTheme(t, th)
+	if got := UI(); got != (Chrome{Bg: th.UIBg, Text: th.UIText, Accent: th.UIAccent}) {
+		t.Errorf("UI = %+v", got)
+	}
+	if got := TerminalPalette(); got != th.Terminal {
+		t.Errorf("TerminalPalette = %+v", got)
 	}
 }
 

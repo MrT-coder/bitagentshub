@@ -200,19 +200,19 @@ func (m Model) drawPicker(buf *screen.Buffer) {
 	box(buf, x, y, w, h, i18n.T(" new agent or terminal "), footer)
 
 	inner := w - 4
-	end := buf.Text(x+2, y+1, "> ", modalBorder)
-	end = buf.Text(end, y+1, ansi.Truncate(p.filter, max(0, inner-3), "…"), modalText)
-	cursor := modalText
+	end := buf.Text(x+2, y+1, "> ", modalBorder())
+	end = buf.Text(end, y+1, ansi.Truncate(p.filter, max(0, inner-3), "…"), modalText())
+	cursor := modalText()
 	cursor.Reverse = true
 	buf.Text(end, y+1, " ", cursor)
 	if p.filter == "" {
-		buf.Text(end+2, y+1, ansi.Truncate(i18n.T("type to filter, or a new folder name or path"), max(0, inner-5), "…"), modalDim)
+		buf.Text(end+2, y+1, ansi.Truncate(i18n.T("type to filter, or a new folder name or path"), max(0, inner-5), "…"), modalDim())
 	}
 
 	list := p.choices()
 	rows := h - 4
 	if len(list) == 0 {
-		buf.Text(x+2, y+3, i18n.T("No folder matches."), modalDim)
+		buf.Text(x+2, y+3, i18n.T("No folder matches."), modalDim())
 		return
 	}
 	first := max(0, min(p.sel-rows/2, len(list)-rows))
@@ -235,7 +235,7 @@ func (m Model) drawPicker(buf *screen.Buffer) {
 		case c.Recent:
 			line += i18n.T(" · recent")
 		}
-		st := modalText
+		st := modalText()
 		if first+i == p.sel {
 			st.Reverse = true
 		}

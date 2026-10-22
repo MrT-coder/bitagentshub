@@ -55,12 +55,14 @@ type fakeTerm struct {
 	alt        bool
 	mouse      []string // "kind@x,y"
 	lines      []string // screen rows; nil draws the argv
+	base       screen.Style
+	pal        screen.Palette
 }
 
 func (f *fakeTerm) Key(msg tea.KeyPressMsg) { f.keys = append(f.keys, msg.String()) }
 func (f *fakeTerm) Paste(text string)       { f.keys = append(f.keys, "paste:"+text) }
-func (f *fakeTerm) Draw(buf *screen.Buffer, x, y, w, h, scroll int, base screen.Style) {
-	f.scroll = scroll
+func (f *fakeTerm) Draw(buf *screen.Buffer, x, y, w, h, scroll int, base screen.Style, pal screen.Palette) {
+	f.scroll, f.base, f.pal = scroll, base, pal
 	if f.lines != nil {
 		for i, l := range f.lines {
 			buf.Text(x, y+i, l, base)
@@ -258,6 +260,22 @@ func TestF3OpensATerminalBesideTheAgentInItsFolder(t *testing.T) {
 	m = press(m, key("x"))
 	if len(shell.keys) != 1 || len(rec.started[0].keys) != 0 {
 		t.Errorf("keys should go to the new, focused terminal: shell=%v agent=%v", shell.keys, rec.started[0].keys)
+	}
+}
+
+func TestTerminalsUseTheThemesWindowAndTerminalColors(t *testing.T) {
+	th, _ := office.Preset("gentle-ai")
+	office.SetTheme(th)
+	t.Cleanup(func() { office.SetTheme(office.BuiltinTheme()) })
+	m, _, rec := twoAgentOffice(t)
+	m = press(m, key("enter"))
+	_ = view(m)
+	agent := rec.started[0]
+	if want := screen.Fg(th.UIText).WithBg(th.UIBg); agent.base != want {
+		t.Errorf("terminal text = %+v, want %+v", agent.base, want)
+	}
+	if agent.pal != th.Terminal {
+		t.Errorf("terminal palette = %+v, want the theme's", agent.pal)
 	}
 }
 

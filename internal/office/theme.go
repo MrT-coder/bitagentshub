@@ -17,7 +17,8 @@ import (
 )
 
 // Theme is everything a theme can change: the people's palettes, the room's
-// colors and the characters' poses. Desks and furniture keep their look.
+// colors, the characters' poses, the windows and the terminals' colors.
+// Desks and furniture keep their look.
 type Theme struct {
 	Name, Author string
 
@@ -29,6 +30,13 @@ type Theme struct {
 	Baseboard                    screen.RGB
 	FloorA, FloorB, FloorSeam    screen.RGB
 	Carpets                      []screen.RGB // one per area, cycling
+
+	// The windows (terminals, board, settings): background, text and
+	// border. Terminal text without colors of its own uses them too.
+	UIBg, UIText, UIAccent screen.RGB
+	// Terminal recolors the 16 ANSI colors programs ask for; unset, they
+	// keep the emulator's own.
+	Terminal screen.Palette
 
 	poses [poseCount][]frame
 }
@@ -86,6 +94,18 @@ func init() { SetTheme(BuiltinTheme()) }
 // on. t comes from BuiltinTheme or LoadTheme.
 func SetTheme(t Theme) { active.Store(&t) }
 
+// Chrome is the windows' colors in the active theme.
+type Chrome struct{ Bg, Text, Accent screen.RGB }
+
+// UI is the windows' colors of the active theme.
+func UI() Chrome {
+	t := cur()
+	return Chrome{Bg: t.UIBg, Text: t.UIText, Accent: t.UIAccent}
+}
+
+// TerminalPalette is the terminals' palette of the active theme.
+func TerminalPalette() screen.Palette { return cur().Terminal }
+
 // cur is the active theme. Load it once per call and read every field from
 // that one value, so a theme applied meanwhile is never half seen.
 func cur() *Theme { return active.Load() }
@@ -114,6 +134,10 @@ func BuiltinTheme() Theme {
 		FloorB:    rgb(0x634935),
 		FloorSeam: rgb(0x4e3a2b),
 		Carpets:   []screen.RGB{rgb(0x3d5a6c), rgb(0x5c4a6b), rgb(0x4f6b4a), rgb(0x6b5a3d), rgb(0x6b3d4a)},
+
+		UIBg:     rgb(0x16181d),
+		UIText:   rgb(0xdcdfe4),
+		UIAccent: rgb(0x61afef),
 
 		poses: builtinPoses(),
 	}
@@ -146,6 +170,9 @@ func (t *Theme) colorFields() []colorField {
 		{"room", "floor_b", &t.FloorB, nil},
 		{"room", "floor_seam", &t.FloorSeam, nil},
 		{"room", "carpets", nil, &t.Carpets},
+		{"ui", "background", &t.UIBg, nil},
+		{"ui", "text", &t.UIText, nil},
+		{"ui", "accent", &t.UIAccent, nil},
 	}
 }
 
@@ -170,10 +197,12 @@ func (t *Theme) readManifest(path string) error {
 		return fmt.Errorf("%s: %w", path, err)
 	}
 	var file struct {
-		Name    string         `toml:"name"`
-		Author  string         `toml:"author"`
-		Palette map[string]any `toml:"palette"`
-		Room    map[string]any `toml:"room"`
+		Name     string         `toml:"name"`
+		Author   string         `toml:"author"`
+		Palette  map[string]any `toml:"palette"`
+		Room     map[string]any `toml:"room"`
+		UI       map[string]any `toml:"ui"`
+		Terminal map[string]any `toml:"terminal"`
 	}
 	md, err := toml.Decode(string(src), &file)
 	if err != nil {
@@ -204,7 +233,7 @@ func (t *Theme) readManifest(path string) error {
 	for _, f := range t.colorFields() {
 		fields[f.section+"."+f.key] = f
 	}
-	for section, values := range map[string]map[string]any{"palette": file.Palette, "room": file.Room} {
+	for section, values := range map[string]map[string]any{"palette": file.Palette, "room": file.Room, "ui": file.UI} {
 		for _, key := range sortedKeys(values) {
 			name := section + "." + key
 			fail := func(format string, args ...any) error {
@@ -246,6 +275,39 @@ func (t *Theme) readManifest(path string) error {
 				return fail("want a color like \"#2b1d14\", got %v", v)
 			}
 		}
+	}
+	return t.readTerminal(path, src, file.Terminal)
+}
+
+// readTerminal reads [terminal]: palette is the 16 ANSI colors, black to
+// bright white.
+func (t *Theme) readTerminal(path string, src []byte, values map[string]any) error {
+	for _, key := range sortedKeys(values) {
+		fail := func(format string, args ...any) error {
+			return fmt.Errorf("%s:%d: terminal.%s: %s", path, lineOf(src, "terminal", key), key, fmt.Sprintf(format, args...))
+		}
+		if key != "palette" {
+			return fail("unknown setting")
+		}
+		list, ok := values[key].([]any)
+		if !ok {
+			return fail("want a list of 16 colors, black to bright white")
+		}
+		if len(list) != len(t.Terminal.C) {
+			return fail("has %d colors, want 16: black to bright white", len(list))
+		}
+		for i, e := range list {
+			s, ok := e.(string)
+			if !ok {
+				return fail("want colors like \"#2b1d14\", got %v", e)
+			}
+			c, err := parseColor(s)
+			if err != nil {
+				return fail("%v", err)
+			}
+			t.Terminal.C[i] = c
+		}
+		t.Terminal.Set = true
 	}
 	return nil
 }
@@ -435,6 +497,14 @@ func WriteTheme(dir string, t Theme) error {
 			colors[i] = strconv.Quote(formatColor(c))
 		}
 		fmt.Fprintf(&b, "%s = [%s]\n", f.key, strings.Join(colors, ", "))
+	}
+	if t.Terminal.Set {
+		colors := make([]string, len(t.Terminal.C))
+		for i, c := range t.Terminal.C {
+			colors[i] = strconv.Quote(formatColor(c))
+		}
+		b.WriteString("\n[terminal]\n# The 16 ANSI colors: black, red, green, yellow, blue, magenta, cyan,\n# white, then their bright versions.\n")
+		fmt.Fprintf(&b, "palette = [%s]\n", strings.Join(colors, ", "))
 	}
 	if err := os.WriteFile(filepath.Join(dir, "theme.toml"), []byte(b.String()), 0o644); err != nil {
 		return err

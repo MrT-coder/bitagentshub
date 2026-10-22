@@ -20,6 +20,13 @@ type Style struct {
 	Reverse      bool
 }
 
+// Palette replaces the 16 ANSI colors a terminal program asks for. Without
+// Set, programs keep the emulator's own colors.
+type Palette struct {
+	Set bool
+	C   [16]RGB
+}
+
 func Fg(c RGB) Style { return Style{Fg: c, HasFg: true} }
 
 func (s Style) WithBg(c RGB) Style {

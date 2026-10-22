@@ -21,6 +21,21 @@ var presets = []struct {
 		t.Carpets = colors(0xd9774a, 0xe3b04b, 0x4f9d8b, 0xc05a6b, 0x7b6bb0)
 		t.Agents = colors(0xff6f59, 0xffd23f, 0x3bceac, 0xee4266, 0x540d6e, 0x0ead69, 0xf18f01, 0x2e86ab)
 	}},
+	// The Gentleman theme of Gentleman.Dots (GentlemanGhostty/config), the
+	// one gentle-ai is used with: its terminal palette, its background and
+	// text in the windows, and its colors on the agents.
+	{"gentle-ai", func(t *Theme) {
+		t.WallTop, t.WallFill, t.WallPanel, t.Baseboard = rgb(0x0b0f1a), rgb(0x141a2b), rgb(0x111727), rgb(0x06080f)
+		t.FloorA, t.FloorB, t.FloorSeam = rgb(0x1c2335), rgb(0x192032), rgb(0x10141f)
+		t.Carpets = colors(0x263356, 0x3a2a40, 0x2b3a2a, 0x3d3624, 0x1f3a3a)
+		t.Agents = colors(0xcb7c94, 0xb7cc85, 0xffe066, 0x7fb4ca, 0xff8dd7, 0x7aa89f, 0xde8fa8, 0xa3d4d5)
+		t.UIBg, t.UIText, t.UIAccent = rgb(0x06080f), rgb(0xf3f6f9), rgb(0x7fb4ca)
+		t.Terminal.Set = true
+		copy(t.Terminal.C[:], colors(
+			0x06080f, 0xcb7c94, 0xb7cc85, 0xffe066, 0x7fb4ca, 0xff8dd7, 0x7aa89f, 0xf3f6f9,
+			0x8a8fa3, 0xde8fa8, 0xd1e8a9, 0xfff7b1, 0xa3d4d5, 0xffaeea, 0x7fb4ca, 0xf3f6f9,
+		))
+	}},
 }
 
 // PresetNames are the themes that come with the office, besides "default".

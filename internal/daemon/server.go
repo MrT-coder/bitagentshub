@@ -48,6 +48,7 @@ type client struct {
 type view struct {
 	w, h, scroll int
 	base         screen.Style
+	pal          screen.Palette
 	rows         [][]screen.Span
 	meta         Frame
 }
@@ -237,7 +238,7 @@ func (s *Server) serveRequest(cl *client, req Request) {
 	}
 	switch req.Op {
 	case "view":
-		v := &view{w: max(req.W, 1), h: max(req.H, 1), scroll: req.Scroll, base: req.Base}
+		v := &view{w: max(req.W, 1), h: max(req.H, 1), scroll: req.Scroll, base: req.Base, pal: req.Palette}
 		cl.views[req.ID] = v
 		s.sendLocked(cl, Event{Op: "frame", ID: req.ID, Frame: render(p.prog, v, true)})
 	case "unview":
@@ -362,7 +363,7 @@ func (s *Server) publish(ids map[string]bool) {
 // last sent (all of them when full), remembering them in v.
 func render(prog Program, v *view, full bool) Frame {
 	buf := screen.New(v.w, v.h)
-	prog.Draw(buf, 0, 0, v.w, v.h, v.scroll, v.base)
+	prog.Draw(buf, 0, 0, v.w, v.h, v.scroll, v.base, v.pal)
 	f := state(prog)
 	f.W, f.H, f.Scroll, f.Base, f.Full = v.w, v.h, v.scroll, v.base, full
 	f.Rows = map[int][]screen.Span{}

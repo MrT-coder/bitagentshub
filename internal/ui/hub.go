@@ -164,9 +164,9 @@ func (m Model) hubBox(buf *screen.Buffer, x, y, w, h int, footer string) {
 		if cx+len([]rune(label)) > x+w-2 {
 			return
 		}
-		st := modalDim
+		st := modalDim()
 		if i == m.hubTab {
-			st = modalText
+			st = modalText()
 			st.Bold, st.Reverse = true, true
 		}
 		cx = buf.Text(cx, y, label, st) + 1
@@ -176,7 +176,7 @@ func (m Model) hubBox(buf *screen.Buffer, x, y, w, h int, footer string) {
 // drawPetTab says how the pet is and why.
 func (m Model) drawPetTab(buf *screen.Buffer) {
 	ps := m.petState()
-	heading := modalText
+	heading := modalText()
 	heading.Bold = true
 	title := i18n.Tf("The pet is %s.", ps.Mood.Name())
 	if m.petName != "" {
@@ -185,24 +185,24 @@ func (m Model) drawPetTab(buf *screen.Buffer) {
 	lines := []settingsLine{{title, heading}}
 	switch {
 	case m.renaming:
-		lines = append(lines, settingsLine{i18n.T("name: ") + m.petDraft + "█", modalBorder})
+		lines = append(lines, settingsLine{i18n.T("name: ") + m.petDraft + "█", modalBorder()})
 	case m.petName == "":
-		lines = append(lines, settingsLine{i18n.T("No name yet; r gives it one."), modalDim})
+		lines = append(lines, settingsLine{i18n.T("No name yet; r gives it one."), modalDim()})
 	default:
-		lines = append(lines, settingsLine{i18n.Tf("Name: %s · r renames it", m.petName), modalDim})
+		lines = append(lines, settingsLine{i18n.Tf("Name: %s · r renames it", m.petName), modalDim()})
 	}
 	if m.petStatus != "" {
-		lines = append(lines, settingsLine{m.petStatus, modalBorder})
+		lines = append(lines, settingsLine{m.petStatus, modalBorder()})
 	}
-	lines = append(lines, settingsLine{"", modalText})
+	lines = append(lines, settingsLine{"", modalText()})
 	for _, why := range ps.Why {
-		lines = append(lines, settingsLine{"· " + why, modalText})
+		lines = append(lines, settingsLine{"· " + why, modalText()})
 	}
 	if m.board.Dir != "" {
-		lines = append(lines, settingsLine{"", modalText}, settingsLine{i18n.Tf("🐟 %d fish earned in all, one per task checked off", m.stars.Total), modalDim})
+		lines = append(lines, settingsLine{"", modalText()}, settingsLine{i18n.Tf("🐟 %d fish earned in all, one per task checked off", m.stars.Total), modalDim()})
 	}
-	lines = append(lines, settingsLine{"", modalText},
-		settingsLine{i18n.T("Agents wake it, token limits tire it, finished tasks feed it."), modalDim})
+	lines = append(lines, settingsLine{"", modalText()},
+		settingsLine{i18n.T("Agents wake it, token limits tire it, finished tasks feed it."), modalDim()})
 	footer := i18n.T(" ←→ tab · r rename · esc close ")
 	if m.renaming {
 		footer = i18n.T(" type a name · enter save · esc cancel ")
@@ -212,29 +212,29 @@ func (m Model) drawPetTab(buf *screen.Buffer) {
 
 // drawAbout shows the version and the changelog, scrolled with ↑↓.
 func (m Model) drawAbout(buf *screen.Buffer) {
-	heading := modalText
+	heading := modalText()
 	heading.Bold = true
 	lines := []settingsLine{{"BitAgentsHub " + version.String(), heading},
-		{"MIT License · github.com/MrT-coder/bitagentshub", modalDim},
-		{i18n.T("Early preview: tested on Windows with Claude Code so far."), modalBorder},
-		{i18n.T("Other systems and agents are welcome; reports and help are too."), modalDim},
-		{"", modalText}}
+		{"MIT License · github.com/MrT-coder/bitagentshub", modalDim()},
+		{i18n.T("Early preview: tested on Windows with Claude Code so far."), modalBorder()},
+		{i18n.T("Other systems and agents are welcome; reports and help are too."), modalDim()},
+		{"", modalText()}}
 	text := strings.ReplaceAll(m.changelog, "\r\n", "\n")
 	if i := strings.Index(text, "\n## "); i >= 0 {
 		text = text[i+1:] // the file's title and intro say nothing here
 	}
 	text = strings.TrimSpace(text)
 	if text == "" {
-		lines = append(lines, settingsLine{i18n.T("No changelog in this build."), modalDim})
+		lines = append(lines, settingsLine{i18n.T("No changelog in this build."), modalDim()})
 	}
 	var log []settingsLine
 	for _, l := range strings.Split(text, "\n") {
 		if text == "" {
 			break
 		}
-		st := modalText
+		st := modalText()
 		if strings.HasPrefix(l, "#") {
-			st = modalBorder
+			st = modalBorder()
 		}
 		log = append(log, settingsLine{l, st})
 	}

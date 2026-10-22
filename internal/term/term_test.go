@@ -134,7 +134,7 @@ func TestPasteIsBracketedWhenTheProgramAsksForIt(t *testing.T) {
 
 func draw(s *Session, w, h, scroll int) (plainText, raw string) {
 	buf := screen.New(w, h)
-	s.Draw(buf, 0, 0, w, h, scroll, screen.Style{})
+	s.Draw(buf, 0, 0, w, h, scroll, screen.Style{}, screen.Palette{})
 	lines := buf.Lines()
 	return stripANSI(strings.Join(lines, "\n")), strings.Join(lines, "\n")
 }
@@ -148,6 +148,45 @@ func TestOutputIsDrawnWithItsColors(t *testing.T) {
 	}
 	if !strings.Contains(raw, "38;2;255;0;0") {
 		t.Errorf("red foreground lost: %q", raw)
+	}
+}
+
+func TestThePaletteRecolorsTheSixteenANSIColors(t *testing.T) {
+	s, p, notify := startFake(t, 20, 3)
+	p.print(t, "\x1b[31mred\x1b[0m \x1b[38;5;12mblue\x1b[0m \x1b[38;5;200mpink\x1b[0m \x1b[38;2;1;2;3mrgb\x1b[0m", notify)
+	var pal screen.Palette
+	pal.Set = true
+	pal.C[1] = screen.RGB{R: 0xcb, G: 0x7c, B: 0x94}
+	pal.C[12] = screen.RGB{R: 0xa3, G: 0xd4, B: 0xd5}
+	buf := screen.New(20, 3)
+	s.Draw(buf, 0, 0, 20, 3, 0, screen.Style{}, pal)
+	raw := strings.Join(buf.Lines(), "\n")
+	for _, want := range []string{"38;2;203;124;148", "38;2;163;212;213", "38;2;1;2;3"} {
+		if !strings.Contains(raw, want) {
+			t.Errorf("want %s in %q", want, raw)
+		}
+	}
+	// Colors past the first sixteen keep the emulator's own value.
+	_, plain := draw(s, 20, 3, 0)
+	if rgbOf(raw, "pink") != rgbOf(plain, "pink") {
+		t.Errorf("color 200 changed with the palette: %q", raw)
+	}
+}
+
+// rgbOf is the last truecolor foreground set before word in raw.
+func rgbOf(raw, word string) string {
+	before := raw[:strings.Index(raw, word)]
+	i := strings.LastIndex(before, "38;2;")
+	end := strings.IndexByte(before[i:], 'm')
+	return before[i : i+end]
+}
+
+func TestWithoutAPaletteTheEmulatorColorsStay(t *testing.T) {
+	s, p, notify := startFake(t, 20, 3)
+	p.print(t, "\x1b[31mred\x1b[0m", notify)
+	_, raw := draw(s, 20, 3, 0)
+	if strings.Contains(raw, "38;2;203;124;148") || !strings.Contains(raw, "38;2;") {
+		t.Errorf("red without a palette = %q", raw)
 	}
 }
 

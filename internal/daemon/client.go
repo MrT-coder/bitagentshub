@@ -237,17 +237,17 @@ func (r *Remote) apply(f Frame) {
 }
 
 // Draw paints the last rows the daemon sent, and asks for another viewport
-// when the box, scroll or style changed; the answer repaints.
-func (r *Remote) Draw(buf *screen.Buffer, x, y, w, h, scroll int, base screen.Style) {
+// when the box, scroll, style or palette changed; the answer repaints.
+func (r *Remote) Draw(buf *screen.Buffer, x, y, w, h, scroll int, base screen.Style, pal screen.Palette) {
 	r.mu.Lock()
-	ask := !r.asked || r.want.w != w || r.want.h != h || r.want.scroll != scroll || r.want.base != base
+	ask := !r.asked || r.want.w != w || r.want.h != h || r.want.scroll != scroll || r.want.base != base || r.want.pal != pal
 	if ask {
-		r.asked, r.want = true, view{w: w, h: h, scroll: scroll, base: base}
+		r.asked, r.want = true, view{w: w, h: h, scroll: scroll, base: base, pal: pal}
 	}
 	rows := r.rows
 	r.mu.Unlock()
 	if ask {
-		r.c.send(Request{Op: "view", ID: r.id, W: w, H: h, Scroll: scroll, Base: base})
+		r.c.send(Request{Op: "view", ID: r.id, W: w, H: h, Scroll: scroll, Base: base, Palette: pal})
 	}
 	for row := 0; row < h && row < len(rows); row++ {
 		col := 0
