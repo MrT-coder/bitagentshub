@@ -1,0 +1,71 @@
+name: Bug report
+description: Something does not work as it should.
+title: "fix: "
+labels: ["bug", "status:needs-review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. The more exact it is, the faster it gets fixed.
+        BitAgentsHub is an early preview tested on Windows with Claude Code, so
+        reports from macOS, Linux and other agents are especially welcome.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Run `bah`
+        2. Press ...
+        3. See ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Shown in the hub's about tab, or by `bah -version`.
+      placeholder: v0.2.0
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Linux
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Agent
+      options:
+        - Claude Code
+        - Codex
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: terminal
+    attributes:
+      label: Terminal
+      description: The terminal app and, if any, the multiplexer.
+      placeholder: Windows Terminal, iTerm2, Ghostty, tmux...
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Logs, screenshots or config
+      description: Remove anything private from config.toml before pasting it.

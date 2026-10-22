@@ -1,0 +1,154 @@
+# Themes
+
+A theme changes the office's colors and how its people look. It is a folder
+of plain text files on your machine: nothing is downloaded, and you can share
+a theme by copying its folder.
+
+This first version covers the palettes, the room colors and the characters'
+poses. Desks, chairs, monitors and furniture are not themable yet.
+
+## Themes that come with the office
+
+Besides `default`, the office brings `night` (dark room, bright agents) and
+`retro` (warm walls, teal floor, 80s colors). Pick one in the hub's settings tab
+(`s`) or in `config.toml`:
+
+```toml
+[theme]
+name = "night"
+```
+
+These names are taken: a theme folder cannot use them.
+
+## Start from the built-in theme
+
+In the office, `s` opens the hub's settings tab: pick a theme and press `enter`
+to apply and save it, or press `n` to copy the active theme under a new name.
+From a terminal:
+
+```sh
+bah theme init my-theme
+```
+
+This writes the built-in theme, every color and every pose, to the themes
+folder next to your `config.toml`:
+
+| OS | Folder |
+|---|---|
+| Windows | `%APPDATA%\bitagentshub\themes\my-theme\` |
+| macOS | `~/Library/Application Support/bitagentshub/themes/my-theme/` |
+| Linux | `~/.config/bitagentshub/themes/my-theme/` (or under `$XDG_CONFIG_HOME`) |
+
+It refuses to write into a folder that already has files. Then select the theme in
+`config.toml` (same folder as `themes`) and restart the office:
+
+```toml
+[theme]
+name = "my-theme"
+```
+
+Without a `[theme]` section the built-in theme is used.
+
+## The folder
+
+```
+my-theme/
+  theme.toml
+  characters/
+    walk-down.txt  walk-up.txt  walk-side.txt
+    stand-down.txt stand-up.txt stand-side.txt
+    typing.txt     reading.txt  thinking.txt
+    blocked.txt    asleep.txt   lounging.txt
+```
+
+`theme.toml` is required; everything in it and every pose file is optional.
+Whatever a theme leaves out, a color or a whole pose, comes from the built-in
+theme, so a theme can be a `theme.toml` with one color. Only the pose files
+listed above may sit in `characters/` (other `.txt` files are an error; files
+with other extensions are ignored).
+
+## theme.toml
+
+The values below are an example; `theme init` writes the built-in ones.
+
+```toml
+name = "My theme"
+author = "you"
+
+[palette]
+hair   = ["#2b1d14", "#d9a066"]   # people get one of these, picked per agent
+skin   = ["#f2c9a0", "#8d5524"]
+pants  = ["#3b4252", "#5e4530"]
+agents = ["#61afef", "#e06c75"]   # shirt and identity color of each agent
+eye        = "#22222a"
+shoes      = "#24201c"
+paper      = "#e5e9f0"            # the page an agent reads
+paper_line = "#9aa0aa"
+
+[room]
+wall_top   = "#3b4252"
+wall_fill  = "#4c566a"
+wall_panel = "#465063"
+baseboard  = "#2e3440"
+floor_a    = "#6b4f3a"   # the two plank colors
+floor_b    = "#634935"
+floor_seam = "#4e3a2b"
+carpets    = ["#3d5a6c", "#5c4a6b"]   # one per area, in turn
+```
+
+- Colors are `#rrggbb`. Lists must have at least one color.
+- Each agent keeps the same hair, skin, pants and shirt for as long as it
+  runs. Changing a list's length can give agents a different look.
+- `agents` is more than a shirt: it is the color of the agent's name on the
+  floor, in the station strip and in the hub's usage tab.
+
+## Poses
+
+A pose file holds one or two frames. A frame is a grid of 8 columns and 14
+rows; frames are separated by one blank line. Each character is one pixel:
+
+| Letter | Pixel |
+|---|---|
+| `H` | hair |
+| `S` | skin |
+| `E` | eye |
+| `B` | shirt (the agent's color) |
+| `b` | shirt in shadow (darker shirt) |
+| `P` | pants |
+| `F` | shoes |
+| `W` | paper |
+| `w` | line on the paper |
+| `.` | transparent |
+
+| Pose | Frames | When |
+|---|---|---|
+| `walk-down`, `walk-up`, `walk-side` | 2 | walking; the two frames alternate |
+| `stand-down`, `stand-up`, `stand-side` | 1 | standing still |
+| `typing` | 2 | at the desk, writing or running a tool |
+| `reading` | 2 | at the desk, reading (holds a page) |
+| `thinking` | 2 | at the desk, thinking |
+| `blocked` | 2 | at the desk, waiting on a permission (hand raised) |
+| `asleep` | 2 | at the desk, idle for a while (only the first frame is drawn today) |
+| `lounging` | 1 | on the sofa |
+
+Rules the office checks when it starts:
+
+- **Seated poses leave the last two rows empty** (`.`): the desk covers the
+  legs.
+- Every frame is 8 columns by 14 rows, uses only the letters above, and each
+  pose has its number of frames.
+
+A theme that breaks a rule, or has a bad color, an empty color list, an
+unknown setting or section in `theme.toml`, or a `.txt` file in
+`characters/` that is not a pose, stops the office at start with an error
+naming the file, the field or pose and the line.
+
+How to draw so poses look right (not checked):
+
+- **Side poses face right.** The office mirrors them for walking left.
+- **Feet go on the last two rows** of walking and standing poses: that is
+  where the office checks for walls and furniture, so feet drawn higher
+  look like they float over things.
+
+Two pixels share one terminal cell (the office draws with `▀` and `▄`), so a
+person is 8 cells wide and 7 lines tall on screen.
