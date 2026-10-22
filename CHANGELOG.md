@@ -3,7 +3,7 @@
 Notable changes to BitAgentsHub, newest first. The office shows this file
 in the hub's About tab, so every release adds its section here.
 
-## Unreleased
+## v0.2.0 (2026-10-21)
 
 - Marked as an early preview, tested on Windows with Claude Code, in the
   README, the contributing guide, the bug report form and the About tab.
