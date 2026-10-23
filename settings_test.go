@@ -243,3 +243,34 @@ func slicesContain(list []screen.RGB, c screen.RGB) bool {
 	}
 	return false
 }
+
+func TestApplyingAPaletteDressesTheActiveThemeAndSavesIt(t *testing.T) {
+	s, _ := testSettings(t, "[theme]\nname = \"night\"\n")
+	s.active = "night"
+	if err := s.ApplyPalette("gentle-ai"); err != nil {
+		t.Fatal(err)
+	}
+	gentle, _ := office.Preset("gentle-ai")
+	if office.UI().Bg != gentle.UIBg || s.ActivePalette() != "gentle-ai" {
+		t.Errorf("window background = %v, palette = %q; want gentle-ai's", office.UI().Bg, s.ActivePalette())
+	}
+	if b, _ := os.ReadFile(s.configPath); !strings.Contains(string(b), `palette = "gentle-ai"`) || !strings.Contains(string(b), `name = "night"`) {
+		t.Errorf("config.toml = %s", b)
+	}
+	if err := s.ApplyPalette("default"); err == nil {
+		t.Error("the built-in theme is no palette")
+	}
+	if s.ActivePalette() != "gentle-ai" || office.UI().Bg != gentle.UIBg {
+		t.Error("a palette that fails changes nothing")
+	}
+	if err := s.ApplyPalette(""); err != nil {
+		t.Fatal(err)
+	}
+	night, _ := office.Preset("night")
+	if office.UI().Bg != night.UIBg {
+		t.Errorf("no palette: window background = %v, want night's own %v", office.UI().Bg, night.UIBg)
+	}
+	if b, _ := os.ReadFile(s.configPath); strings.Contains(string(b), "palette") {
+		t.Errorf("config.toml still has the palette: %s", b)
+	}
+}

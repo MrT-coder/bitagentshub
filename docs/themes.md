@@ -45,6 +45,9 @@ folder, except `default`: the built-in theme is the base under every theme
 and lists no colors of its own. Without `palette`, a theme wears its own
 colors.
 
+In the hub's settings tab, `c` on a theme makes it the palette and saves
+it; `c` on `default (built-in)` goes back to the theme's own colors.
+
 ## Start from the built-in theme
 
 In the office, `s` opens the hub's settings tab: pick a theme and press `enter`

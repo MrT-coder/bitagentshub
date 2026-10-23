@@ -26,6 +26,18 @@ type fakeSettings struct {
 	language string
 	langErr  error
 	petName  string
+	palette  string
+}
+
+func (f *fakeSettings) ActivePalette() string { return f.palette }
+
+func (f *fakeSettings) ApplyPalette(name string) error {
+	f.calls = append(f.calls, "palette "+name)
+	if f.applyErr != nil {
+		return f.applyErr
+	}
+	f.palette = name
+	return nil
 }
 
 func (f *fakeSettings) SetPetName(name string) error {
@@ -459,5 +471,30 @@ func TestSettingsRefuseADefaultAnotherActionNowUses(t *testing.T) {
 	}
 	if v := view(m); !strings.Contains(v, "open_board") || !strings.Contains(v, "ctrl+a m") {
 		t.Errorf("the clash should be explained and new agent keep ctrl+a m:\n%s", v)
+	}
+}
+
+func TestSettingsCWearsTheSelectedThemesColors(t *testing.T) {
+	f := &fakeSettings{themes: []string{"aliens", "mine"}, active: "mine", palette: "mine"}
+	m := settingsOffice(t, f)
+	m = press(m, key("s"))
+	if v := view(m); !strings.Contains(v, "mine · palette") || strings.Contains(v, "aliens · palette") {
+		t.Fatalf("the palette in use should be marked:\n%s", v)
+	}
+	m = press(m, key("up")) // aliens
+	m = press(m, key("c"))
+	if !slices.Equal(f.calls, []string{"palette aliens"}) {
+		t.Fatalf("calls = %q, want palette aliens", f.calls)
+	}
+	if v := view(m); !strings.Contains(v, "aliens · palette") || strings.Contains(v, "mine · palette") || !strings.Contains(v, "● mine") {
+		t.Errorf("aliens should be the palette and mine still the theme:\n%s", v)
+	}
+	m = press(m, key("up")) // the built-in theme: the theme's own colors
+	m = press(m, key("c"))
+	if !slices.Equal(f.calls, []string{"palette aliens", "palette "}) {
+		t.Errorf("c on the built-in theme should drop the palette, calls = %q", f.calls)
+	}
+	if v := view(m); strings.Contains(v, "· palette") {
+		t.Errorf("no palette should be marked:\n%s", v)
 	}
 }

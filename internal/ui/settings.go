@@ -20,6 +20,8 @@ type Settings interface {
 	ActiveTheme() string            // "" is the built-in theme
 	ApplyTheme(name string) error   // load, make active and save in config.toml; "" = built-in
 	NewTheme(name string) error     // write the active theme as themes/<name>
+	ActivePalette() string          // the theme whose colors the active one wears; "" for its own
+	ApplyPalette(name string) error // wear name's colors and save [theme] palette; "" = the theme's own
 	LimitsInstalled() (bool, error) // Claude's status line is BitAgentsHub's
 	SetLimits(on bool) error        // install or uninstall it
 	// SetKeys binds an action ("prefix" for the prefix) to keys in
@@ -103,7 +105,8 @@ type settingsWin struct {
 	configPath string
 	themes     []string // theme folders; the list shows the built-in one before them
 	active     string
-	sel        int // index into the list, 0 being the built-in theme
+	palette    string // the theme whose colors the active one wears, "" for its own
+	sel        int    // index into the list, 0 being the built-in theme
 	section    int
 	limits     bool
 	limitsOK   bool // limits was read; until then it is unknown
@@ -126,6 +129,8 @@ type settingsMsg struct {
 	themesSet  bool
 	active     string
 	activeSet  bool
+	palette    string
+	paletteSet bool
 	selName    string // select this theme once the list is in
 	selSet     bool
 	limits     bool
@@ -152,7 +157,7 @@ func (m Model) readSettings() tea.Cmd {
 	}
 	return func() tea.Msg {
 		out := settingsMsg{load: true, configPath: s.ConfigPath(), active: s.ActiveTheme(), activeSet: true,
-			language: s.ActiveLanguage(), langSet: true}
+			palette: s.ActivePalette(), paletteSet: true, language: s.ActiveLanguage(), langSet: true}
 		themes, err := s.Themes()
 		out.themes, out.themesSet = themes, err == nil
 		limits, lerr := s.LimitsInstalled()
@@ -191,6 +196,9 @@ func (m Model) settingsDone(msg settingsMsg) Model {
 	}
 	if msg.activeSet {
 		sw.active = msg.active
+	}
+	if msg.paletteSet {
+		sw.palette = msg.palette
 	}
 	if msg.limitsSet {
 		sw.limits, sw.limitsOK = msg.limits, true
@@ -289,6 +297,12 @@ func (m Model) settingsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		if sw.section == sectionTheme {
 			sw.naming, sw.name = true, ""
 		}
+	case "c":
+		// The built-in theme sets no colors over another: on it, c goes
+		// back to the theme's own colors.
+		if sw.section == sectionTheme && !sw.busy {
+			return m, m.applyPalette(sw.selected())
+		}
 	case "enter":
 		if sw.busy {
 			return m, nil
@@ -348,6 +362,23 @@ func (m Model) applyTheme(name string) tea.Cmd {
 			return settingsMsg{err: err}
 		}
 		return settingsMsg{active: name, activeSet: true, status: i18n.Tf("Theme %s applied and saved.", themeLabel(name))}
+	}
+}
+
+// applyPalette dresses the active theme in name's colors and saves it;
+// "" goes back to the theme's own colors.
+func (m Model) applyPalette(name string) tea.Cmd {
+	s := m.settings
+	m.setWin.busy, m.setWin.status = true, i18n.T("Applying…")
+	return func() tea.Msg {
+		if err := s.ApplyPalette(name); err != nil {
+			return settingsMsg{err: err}
+		}
+		status := i18n.Tf("Wearing the colors of %s; saved.", themeLabel(name))
+		if name == "" {
+			status = i18n.T("Wearing the theme's own colors; saved.")
+		}
+		return settingsMsg{palette: name, paletteSet: true, status: status}
 	}
 }
 
@@ -527,6 +558,9 @@ func (m Model) drawSettings(buf *screen.Buffer) {
 		add(&top, i18n.T("Theme"), focus(sectionTheme))
 		for i, name := range append([]string{""}, sw.themes...) {
 			label := themeLabel(name)
+			if name != "" && name == sw.palette {
+				label += i18n.T(" · palette")
+			}
 			mark := "  "
 			if name == sw.active {
 				mark = "● "
@@ -598,7 +632,7 @@ func (m Model) drawSettings(buf *screen.Buffer) {
 	lines := append(append(top, list...), rest...)
 	h := min(maxH, len(lines)+2)
 	x, y := (fw-w)/2, (fh-h)/2
-	footer := i18n.T(" ←→ tab · ↑↓ move · tab section · enter apply · n new theme · esc close ")
+	footer := i18n.T(" ←→ tab · ↑↓ move · tab section · enter apply · c use its colors · n new theme · esc close ")
 	switch {
 	case sw.naming:
 		footer = i18n.T(" type a folder name · enter create · esc cancel ")

@@ -76,6 +76,30 @@ func (s *officeSettings) ApplyTheme(name string) error {
 	return nil
 }
 
+func (s *officeSettings) ActivePalette() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.palette
+}
+
+// ApplyPalette dresses the active theme in the colors of the theme name,
+// "" for its own, saves it in config.toml and draws with it; if either step
+// fails nothing changes.
+func (s *officeSettings) ApplyPalette(name string) error {
+	t, err := loadLook(s.themesDir, s.ActiveTheme(), name)
+	if err != nil {
+		return err
+	}
+	if err := config.SavePalette(s.configPath, name); err != nil {
+		return err
+	}
+	office.SetTheme(t)
+	s.mu.Lock()
+	s.palette = name
+	s.mu.Unlock()
+	return nil
+}
+
 // SetPetName saves [pet] name in config.toml.
 func (s *officeSettings) SetPetName(name string) error {
 	return config.SavePetName(s.configPath, name)

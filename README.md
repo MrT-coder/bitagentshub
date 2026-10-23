@@ -350,8 +350,10 @@ server: a tool without local limits shows usage only.
 - **Theme**: the themes that come with the office (`default`, `night`,
   `retro`, `gentle-ai`) and every theme in the themes folder, the active one marked. `enter` applies the selected theme at once and saves it
   in `config.toml`, changing only the `name` line of `[theme]` (comments and
-  everything else stay). `n` asks for a name and copies the active theme
-  there to edit.
+  everything else stay). `c` dresses the active theme in the selected
+  theme's colors and saves it as `[theme] palette` (`c` on `default` goes
+  back to the theme's own colors); the palette in use is marked. `n` asks
+  for a name and copies the active theme there to edit.
 - **Language**: English and Español, the one in use marked. `enter`
   switches the whole office to the selected language at once and saves it in
   `config.toml` as `[ui] language`, changing only that line.
