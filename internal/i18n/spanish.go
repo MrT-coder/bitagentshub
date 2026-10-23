@@ -80,8 +80,8 @@ var spanish = map[string]string{
 
 	// Pet tab and the pet's moods and reasons.
 	"The pet is %s.": "La mascota está %s.",
-	"🐟 %d fish earned in all, one per task checked off":             "🐟 %d peces ganados en total, uno por cada tarea marcada",
-	"Agents wake it, token limits tire it, finished tasks feed it.": "Los agentes la despiertan, los límites de tokens la cansan, las tareas terminadas la alimentan.",
+	"🐟 %d fish earned in all, one per task checked off":                                                "🐟 %d peces ganados en total, uno por cada tarea marcada",
+	"Agents wake it, token limits and long stretches without a break tire it, finished tasks feed it.": "Los agentes la despiertan, los límites de tokens y los ratos largos sin descanso la cansan, las tareas terminadas la alimentan.",
 	"sleeping":                              "durmiendo",
 	"busy":                                  "ocupada",
 	"tired":                                 "cansada",

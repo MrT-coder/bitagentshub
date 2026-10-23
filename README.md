@@ -311,7 +311,7 @@ its mood shows how the office is doing:
 | alert `!` | An agent waits on a permission prompt |
 | exhausted `x` | A tool's limit is at 90% or more |
 | hungry (empty bowl) | The board is on and no task was checked off today |
-| tired `~` | A tool's limit is at 70% or more |
+| tired `~` | A break is due (see [Breaks](#breaks)), or a tool's limit is at 70% or more |
 | busy | Agents are working |
 | sleeping `z` | Nobody works |
 
@@ -326,12 +326,50 @@ over whatever is on screen: one window with the **pet**, **usage**,
 program. `u` / `ctrl+a u` and `s` / `ctrl+a s` open it on the usage and
 settings tabs, or close it when it already shows that tab.
 
-- **Pet**: its name, its mood and why, and the fish earned in all. `r`
+- **Pet**: its name, its mood and why, the fish earned in all and today's
+  supervised time and breaks. `r`
   names it: type the name (up to 20 characters) and press `enter`; it is
   saved as `[pet] name` in `config.toml`, changing only that line. Resting
   the mouse on the pet shows its name over it.
 - **About**: the version and this project's [changelog](CHANGELOG.md),
   carried inside the binary; `↑`/`↓` scroll it.
+
+## Breaks
+
+Supervising agents tires you even when you write no code. The office keeps
+a clock of how long you have supervised without a break, by itself: there
+is nothing to start.
+
+- A second counts while you are there: you pressed a key, pasted or clicked
+  in the office within the last 2 minutes. Each one counts more with more
+  agents at work at once, `+25%` per agent beyond the first, up to twice.
+- 5 minutes without input is a break, even while the agents keep working:
+  the clock starts over. Between 2 and 5 minutes it waits.
+- The header shows `⏱ 32m`, the time since the last break. At 50 minutes it
+  suggests one: `☕ 52m · a good moment for a break` when no agent is
+  working, `a break when the agents finish` while they are. The pet gets
+  tired and says why.
+- At 90 minutes the break is overdue: `enter` on an agent asks once before
+  it sends the prompt, and the next `enter` sends it. Shells and an agent
+  waiting on a permission prompt are never held. Agents run inside herdr
+  outside the office cannot be held.
+- Past 5 hours supervised in a day the header says so (`5h10m today`).
+  Today's time and breaks are kept in the state folder (`rest.json`), so a
+  restart carries them on.
+
+These numbers are design choices, not research findings: no study has
+measured how fast supervising coding agents tires people. Change them in
+`config.toml`:
+
+```toml
+[rest]
+enabled  = true   # false turns the clock off
+nudge    = "50m"  # suggest a break
+overdue  = "90m"  # ask before sending a prompt
+break    = "5m"   # this long without input is a break
+daily    = "5h"   # a long day
+friction = true   # false never holds a prompt
+```
 
 ## Usage tab
 

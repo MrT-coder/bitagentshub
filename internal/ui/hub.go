@@ -207,7 +207,7 @@ func (m Model) drawPetTab(buf *screen.Buffer) {
 		lines = append(lines, settingsLine{"", modalText()}, settingsLine{i18n.Tf("⏱ %s supervised today · %d breaks", rest.Short(d.Supervised), d.Breaks), modalDim()})
 	}
 	lines = append(lines, settingsLine{"", modalText()},
-		settingsLine{i18n.T("Agents wake it, token limits tire it, finished tasks feed it."), modalDim()})
+		settingsLine{i18n.T("Agents wake it, token limits and long stretches without a break tire it, finished tasks feed it."), modalDim()})
 	footer := i18n.T(" ←→ tab · r rename · esc close ")
 	if m.renaming {
 		footer = i18n.T(" type a name · enter save · esc cancel ")
