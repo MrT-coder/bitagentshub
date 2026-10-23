@@ -99,6 +99,8 @@ my-theme/
     stand-down.txt stand-up.txt stand-side.txt
     typing.txt     reading.txt  thinking.txt
     blocked.txt    asleep.txt   lounging.txt
+  room/
+    wall.txt       floor.txt
   furniture/
     desk.txt       chair.txt    window.txt   painting.txt clock.txt
     bookshelf.txt  coffee.txt   cooler.txt   sofa.txt     plant.txt
@@ -108,11 +110,12 @@ my-theme/
     bed.txt        bowl.txt
 ```
 
-`theme.toml` is required; everything in it and every pose, furniture and pet
-file is optional. Whatever a theme leaves out, a color, a whole pose, a piece
-of furniture or a pet file, comes from the built-in theme, so a theme can be
-a `theme.toml` with one color. Only the files listed above may sit in
-`characters/`, `furniture/` and `pet/` (other `.txt` files are an error;
+`theme.toml` is required; everything in it and every pose, room, furniture
+and pet file is optional. Whatever a theme leaves out, a color, a whole pose,
+a room tile, a piece of furniture or a pet file, comes from the built-in
+theme, so a theme can be a `theme.toml` with one color. Only the files listed
+above may sit in `characters/`, `room/`, `furniture/` and `pet/` (other
+`.txt` files are an error;
 files with other extensions are ignored).
 
 ## theme.toml
@@ -277,6 +280,49 @@ How to draw so poses look right (not checked):
 
 Two pixels share one terminal cell (the office draws with `▀` and `▄`), so a
 person is 8 cells wide and 7 lines tall on screen.
+
+## Room
+
+A room file holds one grid, a tile the office repeats to cover the room.
+Each character is one pixel and each letter is one of the `[room]` colors;
+there is no `.`, since the room has no holes. The carpets under the areas
+are not tiles: they stay rectangles in the `carpets` colors.
+
+**`wall.txt`**: exactly 12 rows (the wall's height) and 1 to 64 columns,
+repeated left to right from the room's left edge.
+
+| Letter | Pixel |
+|---|---|
+| `T` | `wall_top` |
+| `F` | `wall_fill` |
+| `P` | `wall_panel` |
+| `B` | `baseboard` |
+
+The built-in wall is 12×12: a row of `T`, nine rows of one `P` and eleven
+`F` (a panel every 12 pixels), then two rows of `B`.
+
+**`floor.txt`**: 1 to 64 columns and 1 to 32 rows, repeated both ways from
+the floor's top-left corner, right under the wall.
+
+| Letter | Pixel |
+|---|---|
+| `A` | `floor_a` |
+| `B` | `floor_b` |
+| `S` | `floor_seam` |
+
+The built-in floor is 16×8, two planks 4 pixels high whose seams shift half
+a plank: four rows of one `S` and fifteen `A`, then four rows of eight `B`,
+one `S` and seven `B`.
+
+Rules the office checks when it starts:
+
+- The wall has exactly 12 rows; the floor has 1 to 32.
+- Every row of a tile has the same width, 1 to 64 columns.
+- A tile uses only its own letters: no `.` and no other letter.
+
+A tile that breaks a rule, or a `.txt` file in `room/` that is not `wall` or
+`floor`, stops the office at start with an error naming the file, the line
+and what the tile needs.
 
 ## Furniture
 

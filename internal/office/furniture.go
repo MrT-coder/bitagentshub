@@ -32,28 +32,41 @@ const (
 	piecePlant
 	pieceBed // the pet's corner
 	pieceBowl
+	pieceWall // the room's tiles
+	pieceFloor
 	pieceCount
 )
 
-// pieceSpecs names each piece's folder and file, its size and its letters.
-// The floor items are named like their Item.Kind.
-var pieceSpecs = [pieceCount]struct {
+// pieceSpec names a piece's folder and file, its size and its letters.
+type pieceSpec struct {
 	dir, name string
 	w, h      int
-	letters   string
-}{
-	pieceDesk:      {"furniture", "desk", stationW, 13, "TFLMUC#"},
-	pieceChair:     {"furniture", "chair", 10, 6, "BE"},
-	pieceWindow:    {"furniture", "window", 16, 8, "FGS"},
-	piecePainting:  {"furniture", "painting", 8, 6, "FCH"},
-	pieceClock:     {"furniture", "clock", 5, 5, "FC"},
-	pieceBookshelf: {"furniture", "bookshelf", 14, 18, "Ss123456789"},
-	pieceCoffee:    {"furniture", "coffee", 8, 14, "MPTBUL"},
-	pieceCooler:    {"furniture", "cooler", 6, 12, "BCT"},
-	pieceSofa:      {"furniture", "sofa", 20, 10, "SsaL"},
-	piecePlant:     {"furniture", "plant", 6, 10, "LPB"},
-	pieceBed:       {"pet", "bed", 14, 4, "RP"},
-	pieceBowl:      {"pet", "bowl", 4, 3, "BF"},
+	// A tile repeats across the room, so it may be any size up to
+	// maxW×maxH (a side whose max is 0 stays w or h); w×h is the built-in
+	// tile's. A tile has no '.': the room has no holes.
+	maxW, maxH int
+	letters    string
+}
+
+func (s pieceSpec) tile() bool { return s.maxW > 0 }
+
+// pieceSpecs is every piece's spec. The floor items are named like their
+// Item.Kind.
+var pieceSpecs = [pieceCount]pieceSpec{
+	pieceDesk:      {"furniture", "desk", stationW, 13, 0, 0, "TFLMUC#"},
+	pieceChair:     {"furniture", "chair", 10, 6, 0, 0, "BE"},
+	pieceWindow:    {"furniture", "window", 16, 8, 0, 0, "FGS"},
+	piecePainting:  {"furniture", "painting", 8, 6, 0, 0, "FCH"},
+	pieceClock:     {"furniture", "clock", 5, 5, 0, 0, "FC"},
+	pieceBookshelf: {"furniture", "bookshelf", 14, 18, 0, 0, "Ss123456789"},
+	pieceCoffee:    {"furniture", "coffee", 8, 14, 0, 0, "MPTBUL"},
+	pieceCooler:    {"furniture", "cooler", 6, 12, 0, 0, "BCT"},
+	pieceSofa:      {"furniture", "sofa", 20, 10, 0, 0, "SsaL"},
+	piecePlant:     {"furniture", "plant", 6, 10, 0, 0, "LPB"},
+	pieceBed:       {"pet", "bed", 14, 4, 0, 0, "RP"},
+	pieceBowl:      {"pet", "bowl", 4, 3, 0, 0, "BF"},
+	pieceWall:      {"room", "wall", 12, wallH, 64, 0, "TFPB"},
+	pieceFloor:     {"room", "floor", 16, 8, 64, 32, "ABS"},
 }
 
 // The desk starts at the monitor's row of its station. Its '#' cells are
@@ -199,6 +212,32 @@ func builtinPieces() [pieceCount]piece {
 			"BBBB",
 			".BB.",
 		},
+		// A panel every 12 pixels between the wall's top and its baseboard.
+		pieceWall: {
+			"TTTTTTTTTTTT",
+			"PFFFFFFFFFFF",
+			"PFFFFFFFFFFF",
+			"PFFFFFFFFFFF",
+			"PFFFFFFFFFFF",
+			"PFFFFFFFFFFF",
+			"PFFFFFFFFFFF",
+			"PFFFFFFFFFFF",
+			"PFFFFFFFFFFF",
+			"PFFFFFFFFFFF",
+			"BBBBBBBBBBBB",
+			"BBBBBBBBBBBB",
+		},
+		// Planks 4 pixels high whose seams shift half a plank row by row.
+		pieceFloor: {
+			"SAAAAAAAAAAAAAAA",
+			"SAAAAAAAAAAAAAAA",
+			"SAAAAAAAAAAAAAAA",
+			"SAAAAAAAAAAAAAAA",
+			"BBBBBBBBSBBBBBBB",
+			"BBBBBBBBSBBBBBBB",
+			"BBBBBBBBSBBBBBBB",
+			"BBBBBBBBSBBBBBBB",
+		},
 	}
 }
 
@@ -267,6 +306,10 @@ func (t *Theme) ink(p pieceID, ch byte, n int) (screen.RGB, bool) {
 			return c, false
 		}
 		c = pick(ch, "BF", t.Pet.Bowl, t.Pet.Food)
+	case pieceWall:
+		c = pick(ch, "TFPB", t.WallTop, t.WallFill, t.WallPanel, t.Baseboard)
+	case pieceFloor:
+		c = pick(ch, "ABS", t.FloorA, t.FloorB, t.FloorSeam)
 	}
 	if ch == '.' || ch == '#' {
 		return c, false
@@ -282,15 +325,17 @@ func pick(ch byte, letters string, colors ...screen.RGB) screen.RGB {
 	return screen.RGB{}
 }
 
-func (t *Theme) readPieces(fsys fs.FS, dir string) error {
+// readPieces reads the pieces of folder (furniture or room) of fsys; dir is
+// its path in errors and kind what a file there is.
+func (t *Theme) readPieces(fsys fs.FS, folder, dir, kind string) error {
 	var ids []pieceID
 	var names []string
 	for p, spec := range pieceSpecs {
-		if spec.dir == "furniture" {
+		if spec.dir == folder {
 			ids, names = append(ids, pieceID(p)), append(names, spec.name)
 		}
 	}
-	return readFiles(fsys, "furniture", dir, "piece", "furniture", names, func(i int, path string, src []byte) error {
+	return readFiles(fsys, folder, dir, kind, folder, names, func(i int, path string, src []byte) error {
 		rows, err := parsePiece(path, src, ids[i])
 		if err != nil {
 			return err
@@ -304,12 +349,19 @@ func (t *Theme) readPieces(fsys fs.FS, dir string) error {
 // size in its letters.
 func parsePiece(path string, src []byte, p pieceID) (piece, error) {
 	spec := pieceSpecs[p]
+	what, maxH, rowsWant, colsWant := "piece", spec.h, strconv.Itoa(spec.h), strconv.Itoa(spec.w)
+	if spec.tile() {
+		what, colsWant = "tile", fmt.Sprintf("1-%d", spec.maxW)
+		if spec.maxH > 0 {
+			maxH, rowsWant = spec.maxH, fmt.Sprintf("1-%d", spec.maxH)
+		}
+	}
 	fail := func(line int, format string, args ...any) error {
 		at := path
 		if line > 0 {
 			at += ":" + strconv.Itoa(line)
 		}
-		return fmt.Errorf("%s: piece %s: %s", at, spec.name, fmt.Sprintf(format, args...))
+		return fmt.Errorf("%s: %s %s: %s", at, what, spec.name, fmt.Sprintf(format, args...))
 	}
 	lines := strings.Split(strings.ReplaceAll(string(src), "\r\n", "\n"), "\n")
 	for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
@@ -318,17 +370,25 @@ func parsePiece(path string, src []byte, p pieceID) (piece, error) {
 	var rows piece
 	for i, raw := range lines {
 		n, row := i+1, strings.TrimRight(raw, " \t\r")
-		if row == "" {
+		switch {
+		case row == "" && spec.tile():
+			return nil, fail(n, "row is 0 wide, want %s", colsWant)
+		case row == "":
 			return nil, fail(n, "a piece is one grid with no blank lines")
-		}
-		if len(rows) == spec.h {
-			return nil, fail(n, "has %d rows, want %d", len(lines), spec.h)
-		}
-		if len(row) != spec.w {
+		case len(rows) == maxH:
+			return nil, fail(n, "has %d rows, want %s", len(lines), rowsWant)
+		case spec.tile() && len(rows) > 0 && len(row) != len(rows[0]):
+			return nil, fail(n, "row is %d wide, want %d like row 1", len(row), len(rows[0]))
+		case spec.tile() && len(row) > spec.maxW:
+			return nil, fail(n, "row is %d wide, want %s", len(row), colsWant)
+		case !spec.tile() && len(row) != spec.w:
 			return nil, fail(n, "row is %d wide, want %d", len(row), spec.w)
 		}
 		for col := 0; col < len(row); col++ {
 			ch := row[col]
+			if spec.tile() && !strings.ContainsRune(spec.letters, rune(ch)) {
+				return nil, fail(n, "unknown letter %q in column %d; use %s", ch, col+1, spaced(spec.letters))
+			}
 			if ch != '.' && !strings.ContainsRune(spec.letters, rune(ch)) {
 				return nil, fail(n, "unknown letter %q in column %d; use %s or .", ch, col+1, spaced(spec.letters))
 			}
@@ -346,8 +406,8 @@ func parsePiece(path string, src []byte, p pieceID) (piece, error) {
 		}
 		rows = append(rows, row)
 	}
-	if len(rows) != spec.h {
-		return nil, fail(len(rows), "has %d rows, want %d", len(rows), spec.h)
+	if len(rows) == 0 || len(rows) != spec.h && maxH == spec.h {
+		return nil, fail(len(rows), "has %d rows, want %s", len(rows), rowsWant)
 	}
 	return rows, nil
 }

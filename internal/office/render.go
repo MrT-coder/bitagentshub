@@ -111,44 +111,30 @@ func drawBackground(buf *screen.Buffer, l Layout) {
 	buf.CopyFrom(background.buf)
 }
 
+// drawRoom paints the wall above wallH and the floor below it, each its
+// theme's tile repeated from the top-left, then what hangs on the wall.
 func drawRoom(buf *screen.Buffer, l Layout) {
+	t := cur()
 	h := max(l.H, l.Needed)
 	for y := 0; y < h; y++ {
+		p, row := pieceWall, ""
+		if y < wallH {
+			row = t.pieces[pieceWall][y]
+		} else {
+			floor := t.pieces[pieceFloor]
+			p, row = pieceFloor, floor[(y-wallH)%len(floor)]
+		}
 		for x := 0; x < l.W; x++ {
-			buf.Pixel(x, y, roomPixel(x, y))
+			c, _ := t.ink(p, row[x%len(row)], 0)
+			buf.Pixel(x, y, c)
 		}
 	}
-	t := cur()
 	for _, w := range l.Windows {
 		t.drawPiece(buf, pieceWindow, w.x, w.y, 0)
 	}
 	for i, p := range l.Paintings {
 		t.drawPiece(buf, piecePainting, p.x, p.y, i)
 	}
-}
-
-// roomPixel is the wall above wallH and wooden planks below it.
-func roomPixel(x, y int) screen.RGB {
-	t := cur()
-	switch {
-	case y == 0:
-		return t.WallTop
-	case y >= wallH-2 && y < wallH:
-		return t.Baseboard
-	case y < wallH:
-		if x%12 == 0 {
-			return t.WallPanel
-		}
-		return t.WallFill
-	}
-	plank := (y - wallH) / 4
-	if (x+plank*8)%16 == 0 {
-		return t.FloorSeam
-	}
-	if plank%2 == 0 {
-		return t.FloorA
-	}
-	return t.FloorB
 }
 
 func carpet(buf *screen.Buffer, a Area, c screen.RGB) {

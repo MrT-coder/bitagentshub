@@ -21,7 +21,8 @@ import (
 
 // Theme is everything a theme can change: the people's palettes, the room's
 // colors, the furniture's and the pet's colors, the characters' poses, the
-// furniture's shapes, the windows and the terminals' colors.
+// room's tiles, the furniture's shapes, the windows and the terminals'
+// colors.
 type Theme struct {
 	Name, Author string
 
@@ -344,7 +345,8 @@ func (t *Theme) colorFields() []colorField {
 }
 
 // LoadTheme reads the theme in dir: theme.toml, any characters/<pose>.txt,
-// any furniture/<piece>.txt and any pet/<mood or piece>.txt.
+// any room/<tile>.txt, any furniture/<piece>.txt and any
+// pet/<mood or piece>.txt.
 // Whatever the theme leaves out comes from the built-in theme. Anything it
 // cannot use is an error naming the file, the field or pose, and the line.
 func LoadTheme(dir string) (Theme, error) {
@@ -363,7 +365,10 @@ func loadTheme(fsys fs.FS, dir, name string) (Theme, error) {
 	if err := t.readPoses(fsys, filepath.Join(dir, "characters")); err != nil {
 		return Theme{}, err
 	}
-	if err := t.readPieces(fsys, filepath.Join(dir, "furniture")); err != nil {
+	if err := t.readPieces(fsys, "room", filepath.Join(dir, "room"), "tile"); err != nil {
+		return Theme{}, err
+	}
+	if err := t.readPieces(fsys, "furniture", filepath.Join(dir, "furniture"), "piece"); err != nil {
 		return Theme{}, err
 	}
 	if err := t.readPet(fsys, filepath.Join(dir, "pet")); err != nil {
@@ -699,8 +704,9 @@ func spaced(letters string) string {
 }
 
 // WriteTheme writes t into dir in the format LoadTheme reads: theme.toml
-// and one file per pose, per piece of furniture and per pet file. It refuses a folder that already has files, so it
-// never overwrites someone's theme.
+// and one file per pose, per room tile, per piece of furniture and per pet
+// file. It refuses a folder that already has files, so it never overwrites
+// someone's theme.
 func WriteTheme(dir string, t Theme) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -709,7 +715,7 @@ func WriteTheme(dir string, t Theme) error {
 	if len(entries) > 0 {
 		return fmt.Errorf("%s already exists and is not empty", dir)
 	}
-	for _, sub := range []string{"characters", "furniture", "pet"} {
+	for _, sub := range []string{"characters", "room", "furniture", "pet"} {
 		if err := os.MkdirAll(filepath.Join(dir, sub), 0o755); err != nil {
 			return err
 		}
@@ -718,7 +724,8 @@ func WriteTheme(dir string, t Theme) error {
 	var b strings.Builder
 	b.WriteString("# A bah theme. Colors are #rrggbb; anything left out comes\n")
 	b.WriteString("# from the built-in theme. Character poses live in characters/,\n")
-	b.WriteString("# furniture shapes in furniture/, the pet's in pet/.\n")
+	b.WriteString("# the room's tiles in room/, furniture shapes in furniture/,\n")
+	b.WriteString("# the pet's in pet/.\n")
 	fmt.Fprintf(&b, "name = %s\nauthor = %s\n", tomlString(t.Name), tomlString(t.Author))
 	section := ""
 	for _, f := range t.colorFields() {
