@@ -35,6 +35,10 @@ func (m Model) petState() pet.State {
 		FedToday: m.stars.Today,
 		Eating:   time.Now().Before(m.eatUntil),
 	}
+	if m.rest != nil {
+		st := m.rest.State()
+		t.Supervised, t.RestDue = st.Continuous, st.Due
+	}
 	for _, a := range m.agents() {
 		switch {
 		case a.Blocked:

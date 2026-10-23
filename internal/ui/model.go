@@ -24,6 +24,7 @@ import (
 	"github.com/MrT-coder/bitagentshub/internal/i18n"
 	"github.com/MrT-coder/bitagentshub/internal/office"
 	"github.com/MrT-coder/bitagentshub/internal/projects"
+	"github.com/MrT-coder/bitagentshub/internal/rest"
 	"github.com/MrT-coder/bitagentshub/internal/screen"
 	"github.com/MrT-coder/bitagentshub/internal/usage"
 )
@@ -110,6 +111,13 @@ type Model struct {
 	eatUntil    time.Time              // the pet eats the star just checked off until then
 	unseen      map[string]bool        // agents that worked while their window was closed
 	stripFirst  int                    // first station shown after the user scrolled the strip; -1 follows the open one
+	// The supervision clock, nil while [rest] is off; restPath is the day's
+	// log, saved at most every restSaveEvery.
+	rest      *rest.Clock
+	restCfg   config.Rest
+	restPath  string
+	restSaved time.Time
+	now       func() time.Time // the clock's time; tests move it
 }
 
 func New(store Poller) Model {
@@ -125,6 +133,7 @@ func New(store Poller) Model {
 		stripFirst: -1,
 		termNotify: make(chan string, 64),
 		startTerm:  startPTY,
+		now:        time.Now,
 		host:       "local",
 		canAttach:  runtime.GOOS != "windows",
 		discover:   func(known []claude.ProjectRef) []projects.Project { return projects.Discover(known, nil) },
@@ -283,6 +292,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if modifierAlone(msg.Code) {
 			return m, nil
 		}
+		m.restInput()
 		if m.picker != nil {
 			return m.updatePicker(msg)
 		}
@@ -306,6 +316,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m.updateBoard(msg)
 	case tea.PasteMsg:
+		m.restInput()
 		m.prefixed = false // a paste is not the key the prefix waits for
 		if m.hubOpen {
 			return m, nil // nothing types into a program under the hub
@@ -321,6 +332,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if mv, ok := msg.(tea.MouseMotionMsg); ok && mv.Button == tea.MouseNone {
 			return m.hover(mv.Mouse()), nil // a move without a button only hovers
 		}
+		m.restInput()
 		if m.hubOpen {
 			return m, nil // the hub is on top
 		}
@@ -355,7 +367,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updated = time.Now()
 		m.watch()
 		m.relayout()
-		cmds := []tea.Cmd{tea.Tick(pollEvery, func(time.Time) tea.Msg { return pollMsg{} })}
+		cmds := []tea.Cmd{tea.Tick(pollEvery, func(time.Time) tea.Msg { return pollMsg{} }), m.restTick()}
 		// The pet is always on screen, so the office always animates.
 		if !m.animating {
 			m.animating = true
@@ -568,6 +580,7 @@ func (m Model) render() string {
 	if s.Pending > 0 {
 		summary += i18n.Tf(" · reading %d transcripts", s.Pending)
 	}
+	summary += m.restSummary(working)
 	if m.newer != "" {
 		summary += i18n.Tf(" · %s available: bah upgrade", m.newer)
 	}
