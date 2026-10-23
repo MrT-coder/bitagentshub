@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -39,7 +40,14 @@ type Theme struct {
 	Terminal screen.Palette
 
 	poses [poseCount][]frame
+	// set holds the color settings its theme.toml gives, as "section.key";
+	// the built-in theme sets none, since it is the base under every theme.
+	set map[string]bool
 }
+
+// sets reports whether t's theme.toml gives the color setting key, as
+// "section.key"; colors it leaves out came from the built-in theme.
+func (t *Theme) sets(key string) bool { return t.set[key] }
 
 type poseID int
 
@@ -180,19 +188,26 @@ func (t *Theme) colorFields() []colorField {
 // Whatever the theme leaves out comes from the built-in theme. Anything it
 // cannot use is an error naming the file, the field or pose, and the line.
 func LoadTheme(dir string) (Theme, error) {
+	return loadTheme(os.DirFS(dir), dir, filepath.Base(dir))
+}
+
+// loadTheme reads the theme folder fsys, named name unless its theme.toml
+// says otherwise. Errors name files as paths under dir.
+func loadTheme(fsys fs.FS, dir, name string) (Theme, error) {
 	t := BuiltinTheme()
-	t.Name = filepath.Base(dir)
-	if err := t.readManifest(filepath.Join(dir, "theme.toml")); err != nil {
+	t.Name = name
+	t.set = map[string]bool{}
+	if err := t.readManifest(fsys, filepath.Join(dir, "theme.toml")); err != nil {
 		return Theme{}, err
 	}
-	if err := t.readPoses(filepath.Join(dir, "characters")); err != nil {
+	if err := t.readPoses(fsys, filepath.Join(dir, "characters")); err != nil {
 		return Theme{}, err
 	}
 	return t, nil
 }
 
-func (t *Theme) readManifest(path string) error {
-	src, err := os.ReadFile(path)
+func (t *Theme) readManifest(fsys fs.FS, path string) error {
+	src, err := fs.ReadFile(fsys, "theme.toml")
 	if err != nil {
 		return fmt.Errorf("%s: %w", path, err)
 	}
@@ -274,6 +289,7 @@ func (t *Theme) readManifest(path string) error {
 			default:
 				return fail("want a color like \"#2b1d14\", got %v", v)
 			}
+			t.set[name] = true
 		}
 	}
 	return t.readTerminal(path, src, file.Terminal)
@@ -308,6 +324,7 @@ func (t *Theme) readTerminal(path string, src []byte, values map[string]any) err
 			t.Terminal.C[i] = c
 		}
 		t.Terminal.Set = true
+		t.set["terminal.palette"] = true
 	}
 	return nil
 }
@@ -358,8 +375,8 @@ func parseColor(s string) (screen.RGB, error) {
 
 func formatColor(c screen.RGB) string { return fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B) }
 
-func (t *Theme) readPoses(dir string) error {
-	entries, err := os.ReadDir(dir)
+func (t *Theme) readPoses(fsys fs.FS, dir string) error {
+	entries, err := fs.ReadDir(fsys, "characters")
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
@@ -382,7 +399,7 @@ func (t *Theme) readPoses(dir string) error {
 		if !known {
 			return fmt.Errorf("%s: unknown pose; pose files are %s", path, strings.Join(names, ", "))
 		}
-		src, err := os.ReadFile(path)
+		src, err := fs.ReadFile(fsys, "characters/"+e.Name())
 		if err != nil {
 			return fmt.Errorf("%s: %w", path, err)
 		}

@@ -214,6 +214,7 @@ func TestLoadTheme_TakesEveryAbsentColorFromTheBuiltinTheme(t *testing.T) {
 			} else {
 				*wf.one = custom
 			}
+			want.set = map[string]bool{f.section + "." + f.key: true}
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("LoadTheme with only %s.%s set:\n got %+v\nwant %+v", f.section, f.key, got, want)
 			}
@@ -237,6 +238,7 @@ func TestLoadTheme_TakesEveryAbsentPoseFromTheBuiltinTheme(t *testing.T) {
 			want := BuiltinTheme()
 			want.Name = "mine"
 			want.poses[p] = frames
+			want.set = map[string]bool{}
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("LoadTheme with only %s.txt differs from the built-in theme elsewhere", spec.name)
 			}
@@ -368,7 +370,7 @@ func TestWriteTheme_WritesWhatLoadThemeReadsBack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(got, want) {
+	if !sameRoundTrip(t, got, want) {
 		t.Errorf("round trip differs:\n got %+v\nwant %+v", got, want)
 	}
 }
@@ -407,7 +409,7 @@ func TestWriteTheme_WritesTheTerminalPaletteBack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(got, want) {
+	if !sameRoundTrip(t, got, want) {
 		t.Errorf("round trip differs:\n got %+v\nwant %+v", got, want)
 	}
 }
@@ -494,4 +496,37 @@ func TestLoadTheme_AMisspelledSectionNamesItsLine(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), path+":3: pallete") {
 		t.Errorf("error = %v, want %s:3: pallete …", err, path)
 	}
+}
+
+func TestLoadTheme_RemembersWhichColorsItSets(t *testing.T) {
+	palette := strings.Repeat(`"#000000", `, 15) + `"#ffffff"`
+	dir := writeFiles(t, map[string]string{
+		"theme.toml": "[room]\nfloor_a = \"#123456\"\n[palette]\nagents = [\"#654321\"]\n[terminal]\npalette = [" + palette + "]\n",
+	})
+	got, err := LoadTheme(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for key, want := range map[string]bool{"room.floor_a": true, "palette.agents": true, "terminal.palette": true, "room.floor_b": false, "ui.text": false} {
+		if got.sets(key) != want {
+			t.Errorf("sets(%q) = %v, want %v", key, !want, want)
+		}
+	}
+	if b := BuiltinTheme(); b.sets("room.floor_a") {
+		t.Error("the built-in theme is the base, it sets nothing over another")
+	}
+}
+
+// sameRoundTrip reports whether got, read back from a theme WriteTheme
+// wrote, looks like want. A written theme lists every color, so it sets
+// them all.
+func sameRoundTrip(t *testing.T, got, want Theme) bool {
+	t.Helper()
+	for _, f := range got.colorFields() {
+		if key := f.section + "." + f.key; !got.sets(key) {
+			t.Errorf("a written theme sets every color; %s is not set", key)
+		}
+	}
+	got.set, want.set = nil, nil
+	return reflect.DeepEqual(got, want)
 }

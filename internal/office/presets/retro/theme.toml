@@ -1,0 +1,15 @@
+# Warm walls, teal floor, 80s colors.
+name = "retro"
+
+[palette]
+agents = ["#ff6f59", "#ffd23f", "#3bceac", "#ee4266", "#540d6e", "#0ead69", "#f18f01", "#2e86ab"]
+
+[room]
+wall_top = "#5b3a29"
+wall_fill = "#d9b38c"
+wall_panel = "#c9a37c"
+baseboard = "#4a2f21"
+floor_a = "#3f6f6a"
+floor_b = "#386560"
+floor_seam = "#2a4b47"
+carpets = ["#d9774a", "#e3b04b", "#4f9d8b", "#c05a6b", "#7b6bb0"]

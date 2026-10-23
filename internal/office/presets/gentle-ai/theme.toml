@@ -1,0 +1,30 @@
+# The Gentleman theme of Gentleman.Dots (GentlemanGhostty/config), the one
+# gentle-ai is used with: its terminal palette, its background and text in
+# the windows, and its colors on the agents.
+name = "gentle-ai"
+
+[palette]
+agents = ["#cb7c94", "#b7cc85", "#ffe066", "#7fb4ca", "#ff8dd7", "#7aa89f", "#de8fa8", "#a3d4d5"]
+
+[room]
+wall_top = "#0b0f1a"
+wall_fill = "#141a2b"
+wall_panel = "#111727"
+baseboard = "#06080f"
+floor_a = "#1c2335"
+floor_b = "#192032"
+floor_seam = "#10141f"
+carpets = ["#263356", "#3a2a40", "#2b3a2a", "#3d3624", "#1f3a3a"]
+
+[ui]
+background = "#06080f"
+text = "#f3f6f9"
+accent = "#7fb4ca"
+
+[terminal]
+# The 16 ANSI colors: black, red, green, yellow, blue, magenta, cyan,
+# white, then their bright versions.
+palette = [
+  "#06080f", "#cb7c94", "#b7cc85", "#ffe066", "#7fb4ca", "#ff8dd7", "#7aa89f", "#f3f6f9",
+  "#8a8fa3", "#de8fa8", "#d1e8a9", "#fff7b1", "#a3d4d5", "#ffaeea", "#7fb4ca", "#f3f6f9",
+]

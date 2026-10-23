@@ -1,7 +1,9 @@
 package office
 
 import (
+	"io/fs"
 	"reflect"
+	"sort"
 	"testing"
 )
 
@@ -58,5 +60,37 @@ func TestPresetsComeWithTheOffice(t *testing.T) {
 	}
 	if _, ok := Preset("nope"); ok {
 		t.Error("an unknown name is not a preset")
+	}
+}
+
+// The themes that come with the office are theme folders like any other,
+// so they prove the format and can be copied as they are.
+func TestPresetsAreThemeFolders(t *testing.T) {
+	entries, err := fs.ReadDir(presetFS, "presets")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var folders []string
+	for _, e := range entries {
+		folders = append(folders, e.Name())
+		if _, err := fs.Stat(presetFS, "presets/"+e.Name()+"/theme.toml"); err != nil {
+			t.Errorf("preset %s has no theme.toml: %v", e.Name(), err)
+		}
+	}
+	names := PresetNames()
+	sort.Strings(names)
+	if !reflect.DeepEqual(folders, names) {
+		t.Errorf("preset folders = %v, PresetNames = %v", folders, names)
+	}
+}
+
+// A preset sets only some colors; the rest are the built-in theme's.
+func TestPresetsRememberWhichColorsTheySet(t *testing.T) {
+	p, _ := Preset("night")
+	if !p.sets("room.floor_a") || !p.sets("palette.agents") {
+		t.Error("night sets the floor and the agents' colors")
+	}
+	if p.sets("palette.skin") || p.sets("ui.background") || p.sets("terminal.palette") {
+		t.Error("night leaves the skin, the windows and the terminal to the built-in theme")
 	}
 }

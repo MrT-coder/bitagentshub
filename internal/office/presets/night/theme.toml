@@ -1,0 +1,15 @@
+# Dark room, bright agents.
+name = "night"
+
+[palette]
+agents = ["#7aa2f7", "#bb9af7", "#9ece6a", "#e0af68", "#f7768e", "#7dcfff", "#ff9e64", "#73daca"]
+
+[room]
+wall_top = "#12151b"
+wall_fill = "#1b1f27"
+wall_panel = "#171a21"
+baseboard = "#0d0f13"
+floor_a = "#262a33"
+floor_b = "#22262e"
+floor_seam = "#181b21"
+carpets = ["#243246", "#30243f", "#1f3a33", "#3d3324", "#3d2430"]
