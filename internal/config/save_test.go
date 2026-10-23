@@ -166,3 +166,27 @@ const bom = "\xef\xbb\xbf"
 func TestSaveThemeKeepsItsMessageForADottedTheme(t *testing.T) {
 	refused(t, "theme.name = \"old\"\n", "dark", "the theme is not set in a [theme] table (a dotted key or an inline table); edit it by hand")
 }
+
+func TestSavePaletteSetsItBesideTheThemeAndRemovesIt(t *testing.T) {
+	path := configFile(t, "[theme]\nname = \"aliens\" # the scene\n")
+	if err := config.SavePalette(path, "gentle-ai"); err != nil {
+		t.Fatal(err)
+	}
+	want := "[theme]\npalette = \"gentle-ai\"\nname = \"aliens\" # the scene\n"
+	if got := contents(t, path); got != want {
+		t.Errorf("config.toml =\n%q\nwant\n%q", got, want)
+	}
+	cfg, err := config.Load(path)
+	if err != nil || cfg.Theme != "aliens" || cfg.Palette != "gentle-ai" {
+		t.Fatalf("Load = %+v, %v", cfg, err)
+	}
+	if err := config.SavePalette(path, ""); err != nil {
+		t.Fatal(err)
+	}
+	if got := contents(t, path); got != "[theme]\nname = \"aliens\" # the scene\n" {
+		t.Errorf("an empty palette should remove its line, got %q", got)
+	}
+	if err := config.SavePalette(path, "../x"); err == nil {
+		t.Error("a path is not a palette")
+	}
+}

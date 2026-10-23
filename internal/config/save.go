@@ -44,11 +44,23 @@ func entryRegexps(table, key string) entryRe {
 // rename, and only once Load reads the new name back from the result.
 func SaveTheme(path, name string) error {
 	if name != "" {
-		if _, err := themeName(map[string]any{"name": name}); err != nil {
+		if _, _, err := themeSection(map[string]any{"name": name}); err != nil {
 			return err
 		}
 	}
 	return saveEntry(path, "theme", "name", name, "theme", func(c Config) string { return c.Theme })
+}
+
+// SavePalette sets [theme] palette in the config file at path the way
+// SaveTheme sets the name; "" removes the line, which keeps the theme's own
+// colors.
+func SavePalette(path, name string) error {
+	if name != "" {
+		if _, _, err := themeSection(map[string]any{"palette": name}); err != nil {
+			return err
+		}
+	}
+	return saveEntry(path, "theme", "palette", name, "palette", func(c Config) string { return c.Palette })
 }
 
 // saveEntry sets [table] key to value, a string, in the config file at

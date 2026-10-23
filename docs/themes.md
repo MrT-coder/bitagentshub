@@ -26,6 +26,25 @@ name = "night"
 
 These names are taken: a theme folder cannot use them.
 
+## Wear another theme's colors
+
+A theme is shapes and colors. `palette` keeps the shapes of the theme in
+`name` and dresses them in the colors of another theme:
+
+```toml
+[theme]
+name    = "my-aliens"   # its people, poses and room
+palette = "gentle-ai"   # its colors on top
+```
+
+Every color the palette's `theme.toml` lists replaces the theme's; colors it
+leaves out stay the theme's own. `gentle-ai`, for instance, lists the room,
+the agents, the windows and the terminal, so green alien skin stays green.
+A palette can be any theme that comes with the office or one in the themes
+folder, except `default`: the built-in theme is the base under every theme
+and lists no colors of its own. Without `palette`, a theme wears its own
+colors.
+
 ## Start from the built-in theme
 
 In the office, `s` opens the hub's settings tab: pick a theme and press `enter`

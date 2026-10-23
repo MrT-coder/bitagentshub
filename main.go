@@ -105,8 +105,8 @@ func main() {
 	}
 	i18n.Set(i18n.Lang(lang)) // before the model, whose notices are written as it is built
 	term.SetScrollback(cfg.Scrollback)
-	if cfg.Theme != "" {
-		t, err := loadTheme(config.ThemesDir(*configPath), cfg.Theme)
+	if cfg.Theme != "" || cfg.Palette != "" {
+		t, err := loadLook(config.ThemesDir(*configPath), cfg.Theme, cfg.Palette)
 		if err != nil {
 			fail(err)
 		}
@@ -126,6 +126,7 @@ func main() {
 			settingsPath: filepath.Join(home, ".claude", "settings.json"),
 			state:        state,
 			active:       cfg.Theme,
+			palette:      cfg.Palette,
 			language:     lang,
 		})
 	}

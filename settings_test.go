@@ -215,3 +215,31 @@ func TestNamingThePetSavesItKeepingTheRest(t *testing.T) {
 		t.Error("a blank name should fail")
 	}
 }
+
+func TestApplyingAThemeKeepsThePalette(t *testing.T) {
+	s, _ := testSettings(t, "[theme]\npalette = \"gentle-ai\"\n")
+	s.palette = "gentle-ai"
+	if err := s.ApplyTheme("night"); err != nil {
+		t.Fatal(err)
+	}
+	gentle, _ := office.Preset("gentle-ai")
+	if got := office.UI().Bg; got != gentle.UIBg {
+		t.Errorf("window background = %v, want gentle-ai's %v", got, gentle.UIBg)
+	}
+	if got := office.AgentColor("x"); !slicesContain(gentle.Agents, got) {
+		t.Errorf("agent color %v is not one of gentle-ai's", got)
+	}
+	b, _ := os.ReadFile(s.configPath)
+	if !strings.Contains(string(b), `name = "night"`) || !strings.Contains(string(b), `palette = "gentle-ai"`) {
+		t.Errorf("config.toml = %s", b)
+	}
+}
+
+func slicesContain(list []screen.RGB, c screen.RGB) bool {
+	for _, e := range list {
+		if e == c {
+			return true
+		}
+	}
+	return false
+}

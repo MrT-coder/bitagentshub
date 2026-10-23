@@ -24,6 +24,7 @@ type officeSettings struct {
 
 	mu       sync.Mutex
 	active   string // "" is the built-in theme
+	palette  string // the theme whose colors it wears; "" for its own
 	language string // "en" or "es", the language in use
 }
 
@@ -58,8 +59,8 @@ func (s *officeSettings) ActiveTheme() string {
 	return s.active
 }
 
-// ApplyTheme loads a theme, saves it in config.toml and draws with it; if
-// either step fails nothing changes.
+// ApplyTheme loads a theme, in the palette's colors if one is chosen, saves
+// it in config.toml and draws with it; if either step fails nothing changes.
 func (s *officeSettings) ApplyTheme(name string) error {
 	t, err := s.load(name)
 	if err != nil {
@@ -98,7 +99,8 @@ func (s *officeSettings) ApplyLanguage(lang string) error {
 	return nil
 }
 
-// NewTheme writes the active theme as themes/<name> without applying it.
+// NewTheme writes the active theme, in its palette's colors, as
+// themes/<name> without applying it.
 func (s *officeSettings) NewTheme(name string) error {
 	t, err := s.load(s.ActiveTheme())
 	if err != nil {
@@ -131,8 +133,8 @@ func (s *officeSettings) SetKeys(action string, keys []string) (config.Keymap, e
 }
 
 func (s *officeSettings) load(name string) (office.Theme, error) {
-	if name == "" {
-		return office.BuiltinTheme(), nil
-	}
-	return loadTheme(s.themesDir, name)
+	s.mu.Lock()
+	palette := s.palette
+	s.mu.Unlock()
+	return loadLook(s.themesDir, name, palette)
 }

@@ -580,3 +580,42 @@ func officeShows(c screen.RGB) bool {
 	}
 	return false
 }
+
+// A palette dresses a scene in the colors its theme.toml gives and leaves
+// every other color, and every shape, to the scene.
+func TestWithPalette_TakesOnlyTheColorsThePaletteSets(t *testing.T) {
+	scene := writeFiles(t, map[string]string{
+		"theme.toml":            "name = \"aliens\"\n[palette]\nskin = [\"#00ff00\"]\n[room]\nfloor_a = \"#111111\"\n",
+		"characters/asleep.txt": gridText(blockFrames(2)),
+	})
+	palette := writeFiles(t, map[string]string{
+		"theme.toml": "[room]\nfloor_a = \"#222222\"\n[furniture]\ndesk_top = \"#333333\"\n[ui]\naccent = \"#444444\"\n[terminal]\npalette = [" + strings.Repeat(`"#555555", `, 15) + "\"#666666\"]\n",
+	})
+	s, err := LoadTheme(scene)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := LoadTheme(palette)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := WithPalette(s, p)
+	if got.Name != "aliens" || !reflect.DeepEqual(got.poses, s.poses) {
+		t.Error("the scene keeps its name and its shapes")
+	}
+	if !reflect.DeepEqual(got.Skin, []screen.RGB{rgb(0x00ff00)}) {
+		t.Errorf("skin = %v, want the scene's: the palette does not set it", got.Skin)
+	}
+	if got.FloorA != rgb(0x222222) || got.Furniture.DeskTop != rgb(0x333333) || got.UIAccent != rgb(0x444444) {
+		t.Errorf("floor, desk, accent = %s %s %s, want the palette's", formatColor(got.FloorA), formatColor(got.Furniture.DeskTop), formatColor(got.UIAccent))
+	}
+	if !got.Terminal.Set || got.Terminal.C[15] != rgb(0x666666) {
+		t.Error("the palette's terminal colors go over the scene's")
+	}
+	if s.FloorA != rgb(0x111111) {
+		t.Error("WithPalette must not change the scene it was given")
+	}
+	if b := BuiltinTheme(); !reflect.DeepEqual(WithPalette(b, s).Pants, b.Pants) {
+		t.Error("colors the palette does not set stay the scene's")
+	}
+}

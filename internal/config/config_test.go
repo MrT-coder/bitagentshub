@@ -234,3 +234,23 @@ func TestYourBindingWinsOverADefaultKey(t *testing.T) {
 		t.Errorf("the rest of focus_station's range stays: prefix+4 = %q %d", a, n)
 	}
 }
+
+func TestThePaletteNamesAThemeFolderToo(t *testing.T) {
+	c, err := Load(write(t, "[theme]\nname = \"aliens\"\npalette = \"gentle-ai\"\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Theme != "aliens" || c.Palette != "gentle-ai" {
+		t.Errorf("theme = %q, palette = %q, want aliens and gentle-ai", c.Theme, c.Palette)
+	}
+	if c, _ := Load(write(t, "[theme]\nname = \"aliens\"\n")); c.Palette != "" {
+		t.Errorf("no palette should keep the theme's own colors, got %q", c.Palette)
+	}
+	for _, bad := range []string{`palette = ""`, `palette = "../x"`, `palette = 'a\b'`, `palette = 3`} {
+		path := write(t, "[theme]\n"+bad+"\n")
+		_, err := Load(path)
+		if err == nil || !strings.Contains(err.Error(), path) || !strings.Contains(err.Error(), "theme.palette") {
+			t.Errorf("%s: error %v should name the file and theme.palette", bad, err)
+		}
+	}
+}

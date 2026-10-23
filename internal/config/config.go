@@ -56,6 +56,7 @@ const defaultPrefix = "ctrl+a"
 type Config struct {
 	Keys       Keymap
 	Theme      string // a folder under ThemesDir; "" is the built-in theme
+	Palette    string // a theme whose colors go over Theme's; "" keeps Theme's own
 	Board      Board
 	Language   string // "en" or "es"; "" follows the system
 	PetName    string // "" while the pet has no name
@@ -182,7 +183,7 @@ func Load(path string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("%s: %w", path, err)
 	}
-	theme, err := themeName(file.Theme)
+	theme, palette, err := themeSection(file.Theme)
 	if err != nil {
 		return Config{}, fmt.Errorf("%s: %w", path, err)
 	}
@@ -202,7 +203,7 @@ func Load(path string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("%s: %w", path, err)
 	}
-	return Config{Keys: k, Theme: theme, Board: b, Language: lang, PetName: pet, Scrollback: lines}, nil
+	return Config{Keys: k, Theme: theme, Palette: palette, Board: b, Language: lang, PetName: pet, Scrollback: lines}, nil
 }
 
 // boardSection reads [board]: an absolute folder, since the office runs from
@@ -227,24 +228,34 @@ func boardSection(section map[string]any) (Board, error) {
 	return b, nil
 }
 
-// themeName reads [theme]: only a folder name, never a path, so a theme
-// always comes from the themes folder.
-func themeName(section map[string]any) (string, error) {
+// themeSection reads [theme]: name, the theme drawn, and palette, a theme
+// whose colors go over it. Both are only folder names, never paths, so a
+// theme always comes from the themes folder.
+func themeSection(section map[string]any) (name, palette string, err error) {
 	for key := range section {
-		if key != "name" {
-			return "", fmt.Errorf("theme.%s: unknown field", key)
+		if key != "name" && key != "palette" {
+			return "", "", fmt.Errorf("theme.%s: unknown field", key)
 		}
 	}
-	v, ok := section["name"]
+	if name, err = themeFolder(section, "name"); err != nil {
+		return "", "", err
+	}
+	palette, err = themeFolder(section, "palette")
+	return name, palette, err
+}
+
+// themeFolder reads [theme] key, a folder in the themes folder; "" when unset.
+func themeFolder(section map[string]any, key string) (string, error) {
+	v, ok := section[key]
 	if !ok {
 		return "", nil
 	}
 	name, isString := v.(string)
 	switch {
 	case !isString:
-		return "", fmt.Errorf("theme.name: want a folder name, got %v", v)
+		return "", fmt.Errorf("theme.%s: want a folder name, got %v", key, v)
 	case name == "" || name == "." || name == ".." || strings.ContainsAny(name, `/\`):
-		return "", fmt.Errorf("theme.name: %q is not a folder name inside the themes folder", name)
+		return "", fmt.Errorf("theme.%s: %q is not a folder name inside the themes folder", key, name)
 	}
 	return name, nil
 }

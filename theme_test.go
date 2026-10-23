@@ -87,3 +87,27 @@ func TestAThemeFolderWithoutItsManifestSaysSo(t *testing.T) {
 		t.Errorf("error = %v, want it to ask for theme.toml, not to run theme init on an existing folder", err)
 	}
 }
+
+func TestLoadLookDressesTheThemeInThePalette(t *testing.T) {
+	themes := t.TempDir()
+	if _, err := themeInitFrom(themes, "mine", "night"); err != nil {
+		t.Fatal(err)
+	}
+	look, err := loadLook(themes, "mine", "gentle-ai")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gentle, _ := office.Preset("gentle-ai")
+	if look.Name != "mine" || look.FloorA != gentle.FloorA || look.UIBg != gentle.UIBg || look.Terminal != gentle.Terminal {
+		t.Errorf("look = %s with floor %v, window %v; want mine in gentle-ai's colors", look.Name, look.FloorA, look.UIBg)
+	}
+	if plain, _ := loadLook(themes, "", ""); plain.Name != office.BuiltinTheme().Name {
+		t.Errorf("no theme and no palette is the built-in theme, got %s", plain.Name)
+	}
+	if _, err := loadLook(themes, "mine", "nope"); err == nil || !strings.Contains(err.Error(), `"nope"`) {
+		t.Errorf("a missing palette = %v, want an error naming it", err)
+	}
+	if _, err := loadLook(themes, "mine", "default"); err == nil || !strings.Contains(err.Error(), "palette") {
+		t.Errorf("the built-in theme as palette = %v, want an error: it sets no colors over another", err)
+	}
+}

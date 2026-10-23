@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -51,6 +53,35 @@ type Theme struct {
 // sets reports whether t's theme.toml gives the color setting key, as
 // "section.key"; colors it leaves out came from the built-in theme.
 func (t *Theme) sets(key string) bool { return t.set[key] }
+
+// WithPalette is scene in palette's colors: every color palette's theme.toml
+// gives replaces the scene's, and the scene keeps its name, its shapes and
+// every color the palette leaves out.
+func WithPalette(scene, palette Theme) Theme {
+	out := scene
+	out.set = maps.Clone(scene.set)
+	if out.set == nil {
+		out.set = map[string]bool{}
+	}
+	to := out.colorFields()
+	for i, f := range palette.colorFields() {
+		key := f.section + "." + f.key
+		if !palette.sets(key) {
+			continue
+		}
+		if f.one != nil {
+			*to[i].one = *f.one
+		} else {
+			*to[i].list = slices.Clone(*f.list)
+		}
+		out.set[key] = true
+	}
+	if palette.sets("terminal.palette") {
+		out.Terminal = palette.Terminal
+		out.set["terminal.palette"] = true
+	}
+	return out
+}
 
 // Furniture is the colors of the desks, of what hangs on the wall and of
 // what stands on the floor.

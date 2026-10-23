@@ -77,6 +77,29 @@ func writeThemeAs(themes, name string, t office.Theme) (string, error) {
 	return dir, nil
 }
 
+// loadLook is what the office is drawn with: themes/<name>, "" being the
+// built-in theme, in the colors of themes/<palette>, "" keeping its own.
+func loadLook(themes, name, palette string) (office.Theme, error) {
+	t := office.BuiltinTheme()
+	if name != "" {
+		var err error
+		if t, err = loadTheme(themes, name); err != nil {
+			return t, err
+		}
+	}
+	switch palette {
+	case "":
+		return t, nil
+	case "default":
+		return t, errors.New(`the built-in theme sets no colors over another, so it cannot be a palette; leave palette out to keep the theme's own colors`)
+	}
+	p, err := loadTheme(themes, palette)
+	if err != nil {
+		return t, fmt.Errorf("palette: %w", err)
+	}
+	return office.WithPalette(t, p), nil
+}
+
 // loadTheme reads themes/<name>; a missing theme says how to make one.
 func loadTheme(themes, name string) (office.Theme, error) {
 	if t, ok := office.Preset(name); ok {
