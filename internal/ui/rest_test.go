@@ -8,6 +8,7 @@ import (
 
 	"github.com/MrT-coder/bitagentshub/internal/claude"
 	"github.com/MrT-coder/bitagentshub/internal/config"
+	"github.com/MrT-coder/bitagentshub/internal/herdr"
 	"github.com/MrT-coder/bitagentshub/internal/pet"
 	"github.com/MrT-coder/bitagentshub/internal/rest"
 )
@@ -117,5 +118,76 @@ func TestRest_ThePetTiresWhenABreakIsDue(t *testing.T) {
 	m = press(m, key("p")) // the hub opens on the pet tab
 	if v := view(m); !strings.Contains(v, "52m supervised today · 0 breaks") {
 		t.Errorf("the pet tab should show the day:\n%s", v)
+	}
+}
+
+func TestRest_AnOverdueBreakAsksBeforeAPromptIsSent(t *testing.T) {
+	m, _, _ := restOffice(t, 95*time.Minute, restOn())
+	rec := &termRecorder{}
+	m.startTerm = rec.start
+	m = press(m, key("enter")) // open the front agent
+	agent := rec.last()
+	m = typeText(m, "go")
+	m = press(m, key("enter"))
+	if got := strings.Join(agent.keys, ","); got != "g,o" {
+		t.Fatalf("the first enter should wait, the agent got %q", got)
+	}
+	if v := view(m); !strings.Contains(v, "☕ 1h35m without a break · enter again sends it") {
+		t.Errorf("the window should say why it waits:\n%s", v)
+	}
+	m = press(m, key("enter"))
+	if got := strings.Join(agent.keys, ","); got != "g,o,enter" {
+		t.Errorf("the second enter sends the prompt, the agent got %q", got)
+	}
+	m = press(m, key("enter"))
+	if got := strings.Join(agent.keys, ","); got != "g,o,enter" {
+		t.Errorf("the next prompt asks again, the agent got %q", got)
+	}
+}
+
+func TestRest_FrictionNeverTouchesShellsNorWorksWithoutOverdueOrWhenOff(t *testing.T) {
+	cases := map[string]struct {
+		continuous time.Duration
+		cfg        func() config.Rest
+	}{
+		"not overdue":  {52 * time.Minute, restOn},
+		"friction off": {95 * time.Minute, func() config.Rest { c := restOn(); c.Friction = false; return c }},
+		"clock off":    {95 * time.Minute, func() config.Rest { c := restOn(); c.Enabled = false; return c }},
+	}
+	for name, tc := range cases {
+		m, _, _ := restOffice(t, tc.continuous, tc.cfg())
+		rec := &termRecorder{}
+		m.startTerm = rec.start
+		m = press(m, key("enter"))
+		agent := rec.last()
+		m = press(m, key("enter"))
+		if got := strings.Join(agent.keys, ","); got != "enter" {
+			t.Errorf("%s: the agent got %q, want enter at once", name, got)
+		}
+	}
+	m, _, _ := restOffice(t, 95*time.Minute, restOn())
+	rec := &termRecorder{}
+	m.startTerm = rec.start
+	m = press(press(m, key("enter")), key("f3")) // a shell beside the agent
+	shell := rec.last()
+	m = press(m, key("enter"))
+	if got := strings.Join(shell.keys, ","); got != "enter" {
+		t.Errorf("a shell is never asked, it got %q", got)
+	}
+}
+
+func TestRest_AnAgentWaitingOnAPermissionIsAnsweredAtOnce(t *testing.T) {
+	m, _, _ := restOffice(t, 95*time.Minute, restOn())
+	m = update(m, herdrMsg{panes: []herdr.Pane{
+		{PaneID: "w1:p1", TerminalID: "term_1", Agent: "claude", SessionID: "front", Cwd: frontDir, Status: "blocked"},
+		{PaneID: "w2:p1", TerminalID: "term_2", Agent: "claude", SessionID: "service", Cwd: serviceDir},
+	}})
+	rec := &termRecorder{}
+	m.startTerm = rec.start
+	m = press(m, key("enter"))
+	agent := rec.last()
+	m = press(m, key("enter"))
+	if got := strings.Join(agent.keys, ","); got != "enter" {
+		t.Errorf("a blocked agent gets its answer at once, it got %q", got)
 	}
 }
