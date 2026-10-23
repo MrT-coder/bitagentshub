@@ -621,3 +621,27 @@ func TestWithPalette_TakesOnlyTheColorsThePaletteSets(t *testing.T) {
 		t.Error("colors the palette does not set stay the scene's")
 	}
 }
+
+// The space scene in examples/ is the proof docs/themes.md points to: a
+// whole new look made only of files, so it must keep loading.
+func TestSpaceExample_LoadsAsAThemeOfItsOwn(t *testing.T) {
+	got, err := LoadTheme(filepath.Join("..", "..", "examples", "themes", "space"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"palette.skin", "room.wall_fill", "furniture.glass", "pet.eye", "custom.antenna", "custom.hull_light"} {
+		if !got.sets(key) {
+			t.Errorf("the space scene sets %s", key)
+		}
+	}
+	b := BuiltinTheme()
+	if reflect.DeepEqual(got.poses, b.poses) {
+		t.Error("the space scene's aliens look like the built-in people")
+	}
+	if reflect.DeepEqual(got.pieces, b.pieces) {
+		t.Error("the space scene's room and furniture look like the built-in ones")
+	}
+	if reflect.DeepEqual(got.moods, b.moods) {
+		t.Error("the space scene's cat looks like the built-in one")
+	}
+}

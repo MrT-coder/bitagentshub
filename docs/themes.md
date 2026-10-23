@@ -89,6 +89,48 @@ name = "my-theme"
 
 Without a `[theme]` section the built-in theme is used.
 
+## An example: a spaceship
+
+[`examples/themes/space/`](../examples/themes/space/) turns the office into
+a spaceship: aliens with glowing antennae at the consoles, hull plates with
+a light strip for walls and floor, portholes to the stars, a violet plant
+and a three-eyed cat. It is only files, no code:
+
+- `theme.toml` gives the colors (green, violet and cyan skin, metal, space)
+  and two colors of its own, `antenna` and `hull_light`, with the letters
+  `Z` and `Y` to draw them.
+- `characters/` redraws every pose: the hair rows become two antennae with
+  a `Z` on top.
+- `pet/` adds a third `E` to every frame of the cat.
+- `room/` and `furniture/window.txt` and `furniture/plant.txt` redraw the
+  tiles, the windows and the plant; every other piece comes from the
+  built-in theme.
+
+Copy the folder into your themes folder and select it:
+
+```toml
+[theme]
+name = "space"
+```
+
+`palette` works on it like on any theme: `palette = "gentle-ai"` keeps the
+spaceship and the aliens and dresses them in gentle-ai's colors.
+
+## Make a theme with your agent
+
+This page is the whole format, so an agent can write a theme from it. Give
+it this file and the folder `bah theme init` wrote, and ask for what you
+want, for instance:
+
+> Read docs/themes.md. In my theme folder, turn the office into a pirate
+> ship: the people are pirates with bandanas, the floor is deck planks, the
+> windows are portholes and the pet is a parrot-colored cat. Keep every
+> piece's size.
+
+Then restart the office: a file that breaks a rule stops it with an error
+naming the file, the line and what it needs, which you can hand back to the
+agent as it is.
+
 ## The folder
 
 ```

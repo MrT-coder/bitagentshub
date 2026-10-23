@@ -1,0 +1,66 @@
+# A spaceship office: aliens with glowing antennae at the consoles, metal
+# hull plates for walls and floor, portholes to the stars, and a three-eyed
+# cat. Only the files that change something are here; the rest of the
+# office (desks, chairs, sofa, ...) comes from the built-in theme.
+name = "Space"
+author = "bitagentshub"
+
+[palette]
+hair   = ["#3f6b2a", "#5a3a7a", "#2a5a6b"]   # the antennae's stalks
+skin   = ["#7ed957", "#b48cff", "#5fd4e8"]   # green, violet and cyan aliens
+pants  = ["#2b3140", "#3a3350"]
+agents = ["#c0c8d8", "#ff9f43", "#ee5a6f", "#48dbfb"]   # uniforms
+eye    = "#0a0a12"
+shoes  = "#1a1d26"
+paper      = "#b8f5ff"   # a holo page
+paper_line = "#3aa7c2"
+
+[room]
+wall_top   = "#5b6475"
+wall_fill  = "#3a4150"
+wall_panel = "#2a303c"
+baseboard  = "#1e222b"
+floor_a    = "#4a5161"
+floor_b    = "#5d6577"   # the rivets
+floor_seam = "#2e333e"
+carpets    = ["#1f3b4d", "#3b2a4d"]
+
+[furniture]
+desk_top   = "#8a93a6"
+desk_front = "#4d5566"
+desk_leg   = "#2e333e"
+chair_back = "#3b2a4d"
+chair_edge = "#241a30"
+bezel      = "#1c2029"
+window_frame = "#8a93a6"
+glass        = "#0b1026"   # space
+glass_shine  = "#f5f7ff"   # stars
+leaf     = "#c06bff"
+pot      = "#4d5566"
+pot_base = "#2e333e"
+sofa     = "#2f5d73"
+sofa_leg = "#1e222b"
+
+[pet]
+fur    = "#9b7ede"
+shade  = "#6a4fb0"
+eye    = "#39ff14"
+nose   = "#ff6fa8"
+muzzle = "#e6dcff"
+bed_rim = "#4d5566"
+bed_pad = "#2f5d73"
+bowl    = "#8a93a6"
+food    = "#48dbfb"
+
+[ui]
+background = "#0b0e17"
+text       = "#d6deeb"
+accent     = "#48dbfb"
+
+[custom]
+antenna    = "#39ff14"   # the antennae's glowing tips
+hull_light = "#48dbfb"   # the light strip on the walls, the plant's buds
+
+[letters]
+Z = "custom.antenna"
+Y = "custom.hull_light"

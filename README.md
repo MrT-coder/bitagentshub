@@ -416,6 +416,8 @@ theme, starts from that one instead), and `[theme] name = "<name>"` in
 `config.toml` selects it; `[theme] palette = "<theme>"` dresses it in the
 colors of another theme. See [docs/themes.md](docs/themes.md) for the
 format, the letters each pixel uses and the rules a theme must follow.
+[examples/themes/space](examples/themes/space) is a whole spaceship made
+this way: aliens, hull plates, portholes and a three-eyed cat.
 
 ## The office
 
