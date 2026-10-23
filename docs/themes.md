@@ -5,9 +5,10 @@ the windows and terminals. It is a folder
 of plain text files on your machine: nothing is downloaded, and you can share
 a theme by copying its folder.
 
-It covers the palettes, the room colors, the characters' poses, the windows
-(terminals, board, settings) and the terminals' 16 ANSI colors. Desks,
-chairs, monitors and furniture are not themable yet.
+It covers the palettes, the colors of the room, the furniture and the pet,
+the characters' poses, the windows (terminals, board, settings) and the
+terminals' 16 ANSI colors. The shapes of the furniture and the pet are not
+themable yet.
 
 ## Themes that come with the office
 
@@ -108,6 +109,67 @@ floor_a    = "#6b4f3a"   # the two plank colors
 floor_b    = "#634935"
 floor_seam = "#4e3a2b"
 carpets    = ["#3d5a6c", "#5c4a6b"]   # one per area, in turn
+
+[furniture]
+desk_top   = "#c8a272"
+desk_front = "#8b6a45"
+desk_leg   = "#5c4630"
+chair_back = "#434c5e"
+chair_edge = "#2e3440"
+bezel      = "#2b303b"   # the monitor's frame
+screen_off = "#15181e"   # the monitor while its agent is idle
+mug        = "#e5e9f0"   # the mug on the desk and on the coffee machine
+coffee     = "#6b4226"
+# What a monitor shows, by what its agent does. Each ink list cycles down
+# the lines of text on the screen.
+screen_code     = "#1d2b45"   # writing
+code_ink        = ["#61afef", "#c678dd", "#98c379", "#e5c07b"]
+screen_blocked  = "#4a1d1d"   # waiting on a permission
+blocked_ink     = ["#ff6b6b"]
+screen_thinking = "#262a36"
+thinking_dot    = "#e5c07b"   # the dot that walks across while thinking
+screen_reading  = "#e8e8e0"
+reading_ink     = ["#8a8a90"]
+screen_running  = "#0d120d"   # running a command
+running_ink     = ["#7fd962"]
+# On the wall.
+window_frame   = "#d8dee9"
+glass          = "#88c0d0"
+glass_shine    = "#b5dbe6"
+painting_frame = "#a3815b"
+paintings      = ["#81a1c1", "#bf616a"]   # one canvas per painting, in turn
+painting_hill  = "#a3be8c"
+clock_face     = "#e5e9f0"
+clock_hand     = "#bf616a"
+# On the floor.
+shelf             = "#6b4a2f"
+shelf_back        = "#3e2b1c"
+books             = ["#bf616a", "#5e81ac", "#a3be8c", "#ebcb8b", "#b48ead"]
+machine           = "#5a5f6b"   # the coffee machine
+machine_panel     = "#2e3440"
+machine_tray      = "#1c1f26"
+machine_base      = "#434c5e"
+machine_light     = "#bf616a"   # its light blinks between these two
+machine_light_off = "#7f2f35"
+cooler_bottle     = "#88c0d0"
+cooler_body       = "#d8dee9"
+cooler_tap        = "#5e81ac"
+sofa              = "#7a4b5e"   # its back and arms are drawn darker
+sofa_leg          = "#5c4630"
+leaf              = "#4caf50"
+pot               = "#a0522d"
+pot_base          = "#7a3e22"
+
+[pet]
+fur    = "#d08770"
+shade  = "#a0583a"   # stripes and closed eyes
+eye    = "#2e3440"
+nose   = "#bf616a"
+muzzle = "#eceff4"
+bed_rim = "#4c566a"
+bed_pad = "#5e81ac"
+bowl    = "#d8dee9"
+food    = "#ebcb8b"
 
 [ui]
 background = "#16181d"   # windows: terminals, board, settings

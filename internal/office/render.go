@@ -19,22 +19,8 @@ var (
 	Dim       = screen.Fg(rgb(0x9aa0aa))
 	areaStyle = screen.Style{Fg: rgb(0xeceff4), HasFg: true, Bold: true}
 
-	// The wall, floor and carpet colors come from the active theme.
-
-	deskTop   = rgb(0xc8a272)
-	deskFront = rgb(0x8b6a45)
-	deskLeg   = rgb(0x5c4630)
-	chairBack = rgb(0x434c5e)
-	chairEdge = rgb(0x2e3440)
-	bezel     = rgb(0x2b303b)
-	screenOff = rgb(0x15181e)
-	mugWhite  = rgb(0xe5e9f0)
-	coffeeCol = rgb(0x6b4226)
-
-	windowFrame = rgb(0xd8dee9)
-	glass       = rgb(0x88c0d0)
-	glassShine  = rgb(0xb5dbe6)
-	frameWood   = rgb(0xa3815b)
+	// The room's, the furniture's and the pet's colors come from the
+	// active theme.
 )
 
 // Draw paints the office into buf (one cell per column, two pixels per
@@ -132,20 +118,20 @@ func drawRoom(buf *screen.Buffer, l Layout) {
 			buf.Pixel(x, y, roomPixel(x, y))
 		}
 	}
+	f := &cur().Furniture
 	for _, w := range l.Windows {
-		fillRect(buf, w.x, w.y, w.w, w.h, windowFrame)
-		fillRect(buf, w.x+1, w.y+1, w.w-2, w.h-2, glass)
+		fillRect(buf, w.x, w.y, w.w, w.h, f.WindowFrame)
+		fillRect(buf, w.x+1, w.y+1, w.w-2, w.h-2, f.Glass)
 		for i := 0; i < 3; i++ {
-			buf.Pixel(w.x+3+i, w.y+1+i, glassShine)
+			buf.Pixel(w.x+3+i, w.y+1+i, f.GlassShine)
 		}
-		fillRect(buf, w.x+w.w/2, w.y+1, 1, w.h-2, windowFrame)
-		fillRect(buf, w.x+1, w.y+w.h/2, w.w-2, 1, windowFrame)
+		fillRect(buf, w.x+w.w/2, w.y+1, 1, w.h-2, f.WindowFrame)
+		fillRect(buf, w.x+1, w.y+w.h/2, w.w-2, 1, f.WindowFrame)
 	}
 	for i, p := range l.Paintings {
-		fillRect(buf, p.x, p.y, p.w, p.h, frameWood)
-		canvas := []screen.RGB{rgb(0x81a1c1), rgb(0xbf616a)}[i%2]
-		fillRect(buf, p.x+1, p.y+1, p.w-2, p.h-2, canvas)
-		fillRect(buf, p.x+1, p.y+p.h-3, p.w-2, 2, rgb(0xa3be8c))
+		fillRect(buf, p.x, p.y, p.w, p.h, f.PaintingFrame)
+		fillRect(buf, p.x+1, p.y+1, p.w-2, p.h-2, f.Paintings[i%len(f.Paintings)])
+		fillRect(buf, p.x+1, p.y+p.h-3, p.w-2, 2, f.PaintingHill)
 	}
 }
 
@@ -183,51 +169,53 @@ func carpet(buf *screen.Buffer, a Area, c screen.RGB) {
 }
 
 func clock(buf *screen.Buffer, r rect, tick int) {
-	fillRect(buf, r.x, r.y, r.w, r.h, mugWhite)
-	buf.Pixel(r.x+2, r.y+2, cur().Baseboard)
+	t := cur()
+	fillRect(buf, r.x, r.y, r.w, r.h, t.Furniture.ClockFace)
+	buf.Pixel(r.x+2, r.y+2, t.Baseboard)
 	// The hand turns once a minute at the default frame rate.
 	hand := [][2]int{{2, 1}, {3, 1}, {3, 2}, {3, 3}, {2, 3}, {1, 3}, {1, 2}, {1, 1}}[(tick/60)%8]
-	buf.Pixel(r.x+hand[0], r.y+hand[1], rgb(0xbf616a))
+	buf.Pixel(r.x+hand[0], r.y+hand[1], t.Furniture.ClockHand)
 }
 
 func chair(buf *screen.Buffer, st Workstation) {
-	fillRect(buf, st.X+7, st.Y+3, 10, 6, chairBack)
-	fillRect(buf, st.X+7, st.Y+3, 10, 1, chairEdge)
+	f := &cur().Furniture
+	fillRect(buf, st.X+7, st.Y+3, 10, 6, f.ChairBack)
+	fillRect(buf, st.X+7, st.Y+3, 10, 1, f.ChairEdge)
 }
 
 // desk draws the desk with its monitor and a mug. The monitor shows what
 // the agent is doing and is off while it is not working.
 func desk(buf *screen.Buffer, st Workstation, ag claude.Agent, tick int) {
-	x, y := st.X, st.Y
-	fillRect(buf, x+monitorX, y+monitorY, 8, 7, bezel)
-	monitorScreen(buf, x+monitorX+1, y+monitorY+1, ag, tick)
-	fillRect(buf, x+monitorX+3, y+monitorY+7, 2, 1, bezel)
-	fillRect(buf, x+1, y+deskY, stationW-2, 2, deskTop)
-	fillRect(buf, x+1, y+deskY+2, stationW-2, 3, deskFront)
-	fillRect(buf, x+2, y+deskY+5, 1, 1, deskLeg)
-	fillRect(buf, x+stationW-3, y+deskY+5, 1, 1, deskLeg)
-	fillRect(buf, x+19, y+deskY-2, 2, 2, mugWhite)
-	buf.Pixel(x+19, y+deskY-2, coffeeCol)
+	x, y, f := st.X, st.Y, &cur().Furniture
+	fillRect(buf, x+monitorX, y+monitorY, 8, 7, f.Bezel)
+	monitorScreen(buf, f, x+monitorX+1, y+monitorY+1, ag, tick)
+	fillRect(buf, x+monitorX+3, y+monitorY+7, 2, 1, f.Bezel)
+	fillRect(buf, x+1, y+deskY, stationW-2, 2, f.DeskTop)
+	fillRect(buf, x+1, y+deskY+2, stationW-2, 3, f.DeskFront)
+	fillRect(buf, x+2, y+deskY+5, 1, 1, f.DeskLeg)
+	fillRect(buf, x+stationW-3, y+deskY+5, 1, 1, f.DeskLeg)
+	fillRect(buf, x+19, y+deskY-2, 2, 2, f.Mug)
+	buf.Pixel(x+19, y+deskY-2, f.Coffee)
 }
 
 // monitorScreen fills the 6×5 screen at (x, y).
-func monitorScreen(buf *screen.Buffer, x, y int, ag claude.Agent, tick int) {
+func monitorScreen(buf *screen.Buffer, f *Furniture, x, y int, ag claude.Agent, tick int) {
 	if !ag.State.Working() && !ag.Blocked {
-		fillRect(buf, x, y, 6, 5, screenOff)
+		fillRect(buf, x, y, 6, 5, f.ScreenOff)
 		return
 	}
-	bg, ink := rgb(0x1d2b45), []screen.RGB{rgb(0x61afef), rgb(0xc678dd), rgb(0x98c379), rgb(0xe5c07b)}
+	bg, ink := f.ScreenCode, f.CodeInk
 	switch {
 	case ag.Blocked:
-		bg, ink = rgb(0x4a1d1d), []screen.RGB{rgb(0xff6b6b)}
+		bg, ink = f.ScreenBlocked, f.BlockedInk
 	case ag.State == claude.StateThinking:
-		fillRect(buf, x, y, 6, 5, rgb(0x262a36))
-		buf.Pixel(x+1+(tick/3)%4, y+2, rgb(0xe5c07b))
+		fillRect(buf, x, y, 6, 5, f.ScreenThinking)
+		buf.Pixel(x+1+(tick/3)%4, y+2, f.ThinkingDot)
 		return
 	case ag.Activity == claude.ActivityReading:
-		bg, ink = rgb(0xe8e8e0), []screen.RGB{rgb(0x8a8a90)}
+		bg, ink = f.ScreenReading, f.ReadingInk
 	case ag.Activity == claude.ActivityRunning:
-		bg, ink = rgb(0x0d120d), []screen.RGB{rgb(0x7fd962)}
+		bg, ink = f.ScreenRunning, f.RunningInk
 	}
 	fillRect(buf, x, y, 6, 5, bg)
 	scroll := tick / 4
@@ -238,45 +226,43 @@ func monitorScreen(buf *screen.Buffer, x, y int, ag claude.Agent, tick int) {
 }
 
 func drawItem(buf *screen.Buffer, it Item, tick int) {
-	x, y := it.X, it.Y
+	x, y, f := it.X, it.Y, &cur().Furniture
 	switch it.Kind {
 	case "bookshelf":
-		fillRect(buf, x, y, it.W, it.H, rgb(0x6b4a2f))
-		books := []screen.RGB{rgb(0xbf616a), rgb(0x5e81ac), rgb(0xa3be8c), rgb(0xebcb8b), rgb(0xb48ead)}
+		fillRect(buf, x, y, it.W, it.H, f.Shelf)
 		for shelf := 0; shelf < 3; shelf++ {
 			sy := y + 1 + shelf*6
-			fillRect(buf, x+1, sy, it.W-2, 5, rgb(0x3e2b1c))
+			fillRect(buf, x+1, sy, it.W-2, 5, f.ShelfBack)
 			for b := 0; b < it.W-2; b++ {
 				height := 3 + int(hash(strconv.Itoa(b*7+shelf))%3)
-				fillRect(buf, x+1+b, sy+5-height, 1, height, books[(b+shelf)%len(books)])
+				fillRect(buf, x+1+b, sy+5-height, 1, height, f.Books[(b+shelf)%len(f.Books)])
 			}
 		}
 	case "coffee":
-		fillRect(buf, x, y, it.W, it.H, rgb(0x5a5f6b))
-		fillRect(buf, x+1, y+1, it.W-2, 3, rgb(0x2e3440))
-		buf.Pixel(x+it.W-2, y+2, []screen.RGB{rgb(0xbf616a), rgb(0x7f2f35)}[(tick/8)%2])
-		fillRect(buf, x+2, y+6, it.W-4, 4, rgb(0x1c1f26))
-		fillRect(buf, x+3, y+8, 2, 2, mugWhite)
-		fillRect(buf, x, y+it.H-2, it.W, 2, rgb(0x434c5e))
+		fillRect(buf, x, y, it.W, it.H, f.Machine)
+		fillRect(buf, x+1, y+1, it.W-2, 3, f.MachinePanel)
+		buf.Pixel(x+it.W-2, y+2, []screen.RGB{f.MachineLight, f.MachineLightOff}[(tick/8)%2])
+		fillRect(buf, x+2, y+6, it.W-4, 4, f.MachineTray)
+		fillRect(buf, x+3, y+8, 2, 2, f.Mug)
+		fillRect(buf, x, y+it.H-2, it.W, 2, f.MachineBase)
 	case "cooler":
-		fillRect(buf, x+1, y, it.W-2, 5, rgb(0x88c0d0))
-		fillRect(buf, x, y+5, it.W, it.H-5, rgb(0xd8dee9))
-		buf.Pixel(x+2, y+7, rgb(0x5e81ac))
+		fillRect(buf, x+1, y, it.W-2, 5, f.CoolerBottle)
+		fillRect(buf, x, y+5, it.W, it.H-5, f.CoolerBody)
+		buf.Pixel(x+2, y+7, f.CoolerTap)
 	case "sofa":
-		c := rgb(0x7a4b5e)
+		c := f.Sofa
 		fillRect(buf, x, y, it.W, 5, scale(c, 0.85))
 		fillRect(buf, x, y+5, it.W, 3, c)
 		fillRect(buf, x, y+2, 2, 7, scale(c, 0.7))
 		fillRect(buf, x+it.W-2, y+2, 2, 7, scale(c, 0.7))
-		fillRect(buf, x+1, y+it.H-2, 1, 2, deskLeg)
-		fillRect(buf, x+it.W-2, y+it.H-2, 1, 2, deskLeg)
+		fillRect(buf, x+1, y+it.H-2, 1, 2, f.SofaLeg)
+		fillRect(buf, x+it.W-2, y+it.H-2, 1, 2, f.SofaLeg)
 	case "plant":
-		leaf := rgb(0x4caf50)
 		for _, p := range [][2]int{{2, 0}, {1, 1}, {3, 1}, {0, 2}, {2, 2}, {4, 2}, {1, 3}, {2, 3}, {3, 3}, {2, 4}, {0, 4}, {4, 4}} {
-			buf.Pixel(x+p[0]+1, y+p[1], leaf)
+			buf.Pixel(x+p[0]+1, y+p[1], f.Leaf)
 		}
-		fillRect(buf, x+1, y+5, 4, 4, rgb(0xa0522d))
-		fillRect(buf, x+2, y+9, 2, 1, rgb(0x7a3e22))
+		fillRect(buf, x+1, y+5, 4, 4, f.Pot)
+		fillRect(buf, x+2, y+9, 2, 1, f.PotBase)
 	}
 }
 

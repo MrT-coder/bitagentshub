@@ -91,7 +91,7 @@ func TestDrawPet_TheBowlIsFullUnlessHungry(t *testing.T) {
 	}{{pet.Busy, true}, {pet.Hungry, false}} {
 		buf := screen.New(testW, testH)
 		DrawPet(buf, l, c.mood, 0)
-		if got := buf.PixelAt(bx, by) == petFood; got != c.full {
+		if got := buf.PixelAt(bx, by) == cur().Pet.Food; got != c.full {
 			t.Errorf("%v: food in the bowl = %v, want %v", c.mood, got, c.full)
 		}
 	}

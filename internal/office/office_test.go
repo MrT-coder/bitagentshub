@@ -243,7 +243,7 @@ func screenLit(l Layout, c *Crowd, agents []claude.Agent, id string) bool {
 	Draw(buf, l, c, agents, 0, "", pet.Sleeping)
 	st := l.Stations[id]
 	x, y := st.X+monitorX+3, st.Y+monitorY+3
-	return buf.PixelAt(x, y) != screenOff
+	return buf.PixelAt(x, y) != cur().Furniture.ScreenOff
 }
 
 func TestHitTest_FindsTheAgentWhereItStandsOrAtItsStation(t *testing.T) {

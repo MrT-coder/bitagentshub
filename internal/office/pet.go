@@ -16,23 +16,26 @@ const (
 	catH   = 8
 )
 
-var (
-	petFur   = rgb(0xd08770)
-	petShade = rgb(0xa0583a)
-	petEye   = rgb(0x2e3440)
-	petNose  = rgb(0xbf616a)
-	petMuzz  = rgb(0xeceff4)
-	bedRim   = rgb(0x4c566a)
-	bedPad   = rgb(0x5e81ac)
-	bowlCol  = rgb(0xd8dee9)
-	petFood  = rgb(0xebcb8b)
-
-	catColors = map[byte]screen.RGB{'K': petFur, 'k': petShade, 'E': petEye, 'N': petNose, 'W': petMuzz}
-)
-
 // catFrame is a catW×catH grid: K fur, k shade or a closed eye, E eye,
 // N nose, W muzzle, '.' transparent.
 type catFrame [catH]string
+
+// color is the color of letter c of a cat frame in the pet's colors.
+func (p *PetColors) color(c byte) (screen.RGB, bool) {
+	switch c {
+	case 'K':
+		return p.Fur, true
+	case 'k':
+		return p.Shade, true
+	case 'E':
+		return p.Eye, true
+	case 'N':
+		return p.Nose, true
+	case 'W':
+		return p.Muzzle, true
+	}
+	return screen.RGB{}, false
+}
 
 var (
 	catSit = catFrame{
@@ -128,23 +131,23 @@ func catFrames(mood pet.Mood, tick int) (catFrame, string, screen.Style) {
 // DrawPet paints the pet's corner: the bed, the bowl, full unless the pet
 // is hungry, and the pet in its mood's frame with its bubble.
 func DrawPet(buf *screen.Buffer, l Layout, mood pet.Mood, tick int) {
-	p := l.Pet
-	fillRect(buf, p.x+1, p.y+8, 12, 1, bedRim)
-	fillRect(buf, p.x, p.y+9, 14, 2, bedPad)
-	fillRect(buf, p.x+1, p.y+11, 12, 1, bedRim)
+	p, colors := l.Pet, &cur().Pet
+	fillRect(buf, p.x+1, p.y+8, 12, 1, colors.BedRim)
+	fillRect(buf, p.x, p.y+9, 14, 2, colors.BedPad)
+	fillRect(buf, p.x+1, p.y+11, 12, 1, colors.BedRim)
 
 	bx, by := p.x+bowlDX, p.y+bowlDY
 	if mood != pet.Hungry {
-		fillRect(buf, bx+1, by, 2, 1, petFood)
+		fillRect(buf, bx+1, by, 2, 1, colors.Food)
 	}
-	fillRect(buf, bx, by+1, 4, 1, bowlCol)
-	fillRect(buf, bx+1, by+2, 2, 1, bowlCol)
+	fillRect(buf, bx, by+1, 4, 1, colors.Bowl)
+	fillRect(buf, bx+1, by+2, 2, 1, colors.Bowl)
 
 	f, text, st := catFrames(mood, tick)
 	cx, cy := p.x+1, p.y+2
 	for dy, row := range f {
 		for dx := 0; dx < len(row); dx++ {
-			if c, ok := catColors[row[dx]]; ok {
+			if c, ok := colors.color(row[dx]); ok {
 				buf.Pixel(cx+dx, cy+dy, c)
 			}
 		}

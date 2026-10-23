@@ -530,3 +530,53 @@ func sameRoundTrip(t *testing.T, got, want Theme) bool {
 	got.set, want.set = nil, nil
 	return reflect.DeepEqual(got, want)
 }
+
+// Every furniture and pet color of a theme is one the office draws: each
+// one, set alone, shows up somewhere in the posed office or the pet's corner.
+func TestSetTheme_DrawsEveryFurnitureAndPetColor(t *testing.T) {
+	var keys Theme
+	n := 0
+	for i, f := range keys.colorFields() {
+		if f.section != "furniture" && f.section != "pet" {
+			continue
+		}
+		n++
+		t.Run(f.section+"."+f.key, func(t *testing.T) {
+			c := rgb(0xfe0100 + uint32(i))
+			th := BuiltinTheme()
+			if tf := th.colorFields()[i]; tf.list != nil {
+				*tf.list = []screen.RGB{c}
+			} else {
+				*tf.one = c
+			}
+			useTheme(t, th)
+			if !officeShows(c) {
+				t.Errorf("%s.%s = %s is never drawn", f.section, f.key, formatColor(c))
+			}
+		})
+	}
+	if n == 0 {
+		t.Fatal("a theme has no furniture or pet colors")
+	}
+}
+
+// officeShows reports whether the posed office, over ticks that show every
+// blink, or the pet's corner in any mood draws color c.
+func officeShows(c screen.RGB) bool {
+	l, crowd, agents := posedOffice()
+	buf := screen.New(l.W, l.H/2)
+	for _, tick := range []int{0, 8} {
+		Draw(buf, l, crowd, agents, tick, "", pet.Sleeping)
+		if hasPixel(buf, c) {
+			return true
+		}
+	}
+	for _, mood := range []pet.Mood{pet.Busy, pet.Hungry, pet.Sleeping} {
+		buf := screen.New(l.W, l.H/2)
+		DrawPet(buf, l, mood, 0)
+		if hasPixel(buf, c) {
+			return true
+		}
+	}
+	return false
+}
