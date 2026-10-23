@@ -45,9 +45,18 @@ type Theme struct {
 	// keep the emulator's own.
 	Terminal screen.Palette
 
+	// Custom is the theme's own colors, by their [custom] key; a [letters]
+	// letter draws with one as "custom.<key>".
+	Custom map[string]screen.RGB
+
 	poses  [poseCount][]frame
 	pieces [pieceCount]piece
 	moods  [moodCount][]catFrame // the pet's frames
+	// letters is the theme's own letters, which its grid files may use
+	// besides the built-in ones, and the role each draws with, as
+	// "section.key"; inks is the color each resolves to.
+	letters map[byte]string
+	inks    [256]letterInk
 	// set holds the color settings its theme.toml gives, as "section.key";
 	// the built-in theme sets none, since it is the base under every theme.
 	set map[string]bool
@@ -58,8 +67,9 @@ type Theme struct {
 func (t *Theme) sets(key string) bool { return t.set[key] }
 
 // WithPalette is scene in palette's colors: every color palette's theme.toml
-// gives replaces the scene's, and the scene keeps its name, its shapes and
-// every color the palette leaves out.
+// gives replaces the scene's, its [custom] ones included, and the scene
+// keeps its name, its shapes, its own letters and every color the palette
+// leaves out.
 func WithPalette(scene, palette Theme) Theme {
 	out := scene
 	out.set = maps.Clone(scene.set)
@@ -83,6 +93,17 @@ func WithPalette(scene, palette Theme) Theme {
 		out.Terminal = palette.Terminal
 		out.set["terminal.palette"] = true
 	}
+	if len(palette.Custom) > 0 {
+		out.Custom = maps.Clone(scene.Custom)
+		if out.Custom == nil {
+			out.Custom = map[string]screen.RGB{}
+		}
+		for k, c := range palette.Custom {
+			out.Custom[k] = c
+			out.set["custom."+k] = true
+		}
+	}
+	out.resolveLetters()
 	return out
 }
 
@@ -170,7 +191,10 @@ func init() { SetTheme(BuiltinTheme()) }
 
 // SetTheme makes t the theme the office is drawn with, from the next frame
 // on. t comes from BuiltinTheme or LoadTheme.
-func SetTheme(t Theme) { active.Store(&t) }
+func SetTheme(t Theme) {
+	t.resolveLetters()
+	active.Store(&t)
+}
 
 // Chrome is the windows' colors in the active theme.
 type Chrome struct{ Bg, Text, Accent screen.RGB }
@@ -374,6 +398,7 @@ func loadTheme(fsys fs.FS, dir, name string) (Theme, error) {
 	if err := t.readPet(fsys, filepath.Join(dir, "pet")); err != nil {
 		return Theme{}, err
 	}
+	t.resolveLetters()
 	return t, nil
 }
 
@@ -391,6 +416,8 @@ func (t *Theme) readManifest(fsys fs.FS, path string) error {
 		Pet       map[string]any `toml:"pet"`
 		UI        map[string]any `toml:"ui"`
 		Terminal  map[string]any `toml:"terminal"`
+		Custom    map[string]any `toml:"custom"`
+		Letters   map[string]any `toml:"letters"`
 	}
 	md, err := toml.Decode(string(src), &file)
 	if err != nil {
@@ -468,7 +495,13 @@ func (t *Theme) readManifest(fsys fs.FS, path string) error {
 			t.set[name] = true
 		}
 	}
-	return t.readTerminal(path, src, file.Terminal)
+	if err := t.readTerminal(path, src, file.Terminal); err != nil {
+		return err
+	}
+	if err := t.readCustom(path, src, file.Custom); err != nil {
+		return err
+	}
+	return t.readLetters(path, src, file.Letters)
 }
 
 // readTerminal reads [terminal]: palette is the 16 ANSI colors, black to
@@ -557,7 +590,7 @@ func (t *Theme) readPoses(fsys fs.FS, dir string) error {
 		names[p] = spec.name
 	}
 	return readFiles(fsys, "characters", dir, "pose", "pose", names, func(i int, path string, src []byte) error {
-		frames, err := parseFrames(path, src, poseID(i))
+		frames, err := parseFrames(path, src, poseID(i), t.ownLetters())
 		if err != nil {
 			return err
 		}
@@ -600,10 +633,11 @@ func readFiles(fsys fs.FS, folder, dir, kind, group string, names []string, read
 }
 
 // parseFrames reads the pose file at path: frames of spriteH rows of
-// spriteW letters, separated by one blank line.
-func parseFrames(path string, src []byte, p poseID) ([]frame, error) {
+// spriteW letters, separated by one blank line. own is the theme's own
+// letters.
+func parseFrames(path string, src []byte, p poseID, own string) ([]frame, error) {
 	spec := poseSpecs[p]
-	g := grids{what: "pose " + spec.name, w: spriteW, h: spriteH, frames: spec.frames, letters: spriteLetters}
+	g := grids{what: "pose " + spec.name, w: spriteW, h: spriteH, frames: spec.frames, letters: spriteLetters, own: own}
 	if spec.seated {
 		g.rule = func(y int, row string) string {
 			if y >= spriteH-2 && row != strings.Repeat(".", spriteW) {
@@ -630,6 +664,7 @@ type grids struct {
 	what         string // what the file is, named in its errors
 	w, h, frames int
 	letters      string // besides '.'
+	own          string // the theme's own letters
 	rule         func(y int, row string) string
 }
 
@@ -672,8 +707,9 @@ func (g grids) parse(path string, src []byte) ([][]string, error) {
 			return nil, fail(n, "row is %d wide, want %d", len(row), g.w)
 		}
 		for col := 0; col < len(row); col++ {
-			if row[col] != '.' && !strings.ContainsRune(g.letters, rune(row[col])) {
-				return nil, fail(n, "unknown letter %q in column %d; use %s or .", row[col], col+1, spaced(g.letters))
+			ch := row[col]
+			if ch != '.' && strings.IndexByte(g.letters, ch) < 0 && strings.IndexByte(g.own, ch) < 0 {
+				return nil, fail(n, "unknown letter %q in column %d; %s", ch, col+1, useLetters(g.letters, g.own, true))
 			}
 		}
 		if g.rule != nil {
@@ -701,6 +737,20 @@ func (g grids) parse(path string, src []byte) ([][]string, error) {
 // spaced is letters with a space between each, the way errors list them.
 func spaced(letters string) string {
 	return strings.Join(strings.Split(letters, ""), " ")
+}
+
+// useLetters is what an unknown letter's error says to use instead: a
+// grid's letters, '.' when it may have holes, and the theme's own letters
+// when it has some.
+func useLetters(letters, own string, dot bool) string {
+	s := "use " + spaced(letters)
+	if dot {
+		s += " or ."
+	}
+	if own != "" {
+		s += ", or this theme's letters " + spaced(own)
+	}
+	return s
 }
 
 // WriteTheme writes t into dir in the format LoadTheme reads: theme.toml
@@ -743,6 +793,7 @@ func WriteTheme(dir string, t Theme) error {
 		}
 		fmt.Fprintf(&b, "%s = [%s]\n", f.key, strings.Join(colors, ", "))
 	}
+	writeOwn(&b, t)
 	if t.Terminal.Set {
 		colors := make([]string, len(t.Terminal.C))
 		for i, c := range t.Terminal.C {

@@ -252,14 +252,21 @@ func labels(buf *screen.Buffer, st Workstation, a claude.Agent, number int, sele
 	buf.Text(end, line+1, truncate(state, max(0, x+w-end)), screen.Fg(status.Color()))
 }
 
+// sprite draws frame f in look's colors, and the theme's own letters in
+// theirs.
 func sprite(buf *screen.Buffer, x, y int, f frame, mirror bool, look Look) {
+	t := cur()
 	for dy, row := range f {
 		for i := 0; i < len(row); i++ {
 			ch := row[i]
 			if mirror {
 				ch = row[len(row)-1-i]
 			}
-			if c, ok := look.color(ch); ok {
+			c, ok := look.color(ch)
+			if !ok {
+				c, ok = t.ownInk(ch)
+			}
+			if ok {
 				buf.Pixel(x+i, y+dy, c)
 			}
 		}

@@ -266,63 +266,64 @@ func (t *Theme) drawPiece(buf *screen.Buffer, p pieceID, x, y, n int) {
 	}
 }
 
-// ink is the color letter ch stands for in piece p. '.' and the desk's
-// screen draw nothing.
+// ink is the color letter ch stands for in piece p, or one of t's own
+// letters. '.' and the desk's screen draw nothing.
 func (t *Theme) ink(p pieceID, ch byte, n int) (screen.RGB, bool) {
 	f := &t.Furniture
 	var c screen.RGB
+	var ok bool
 	switch p {
 	case pieceDesk:
-		c = pick(ch, "TFLMUC", f.DeskTop, f.DeskFront, f.DeskLeg, f.Bezel, f.Mug, f.Coffee)
+		c, ok = pick(ch, "TFLMUC", f.DeskTop, f.DeskFront, f.DeskLeg, f.Bezel, f.Mug, f.Coffee)
 	case pieceChair:
-		c = pick(ch, "BE", f.ChairBack, f.ChairEdge)
+		c, ok = pick(ch, "BE", f.ChairBack, f.ChairEdge)
 	case pieceWindow:
-		c = pick(ch, "FGS", f.WindowFrame, f.Glass, f.GlassShine)
+		c, ok = pick(ch, "FGS", f.WindowFrame, f.Glass, f.GlassShine)
 	case piecePainting:
-		c = pick(ch, "FCH", f.PaintingFrame, f.Paintings[n%len(f.Paintings)], f.PaintingHill)
+		c, ok = pick(ch, "FCH", f.PaintingFrame, f.Paintings[n%len(f.Paintings)], f.PaintingHill)
 	case pieceClock:
-		c = pick(ch, "FC", f.ClockFace, t.Baseboard)
+		c, ok = pick(ch, "FC", f.ClockFace, t.Baseboard)
 	case pieceBookshelf:
 		if ch >= '1' && ch <= '9' {
 			return f.Books[int(ch-'1')%len(f.Books)], true
 		}
-		c = pick(ch, "Ss", f.Shelf, f.ShelfBack)
+		c, ok = pick(ch, "Ss", f.Shelf, f.ShelfBack)
 	case pieceCoffee:
 		light := f.MachineLight
 		if (n/8)%2 == 1 {
 			light = f.MachineLightOff
 		}
-		c = pick(ch, "MPTBUL", f.Machine, f.MachinePanel, f.MachineTray, f.MachineBase, f.Mug, light)
+		c, ok = pick(ch, "MPTBUL", f.Machine, f.MachinePanel, f.MachineTray, f.MachineBase, f.Mug, light)
 	case pieceCooler:
-		c = pick(ch, "BCT", f.CoolerBottle, f.CoolerBody, f.CoolerTap)
+		c, ok = pick(ch, "BCT", f.CoolerBottle, f.CoolerBody, f.CoolerTap)
 	case pieceSofa:
-		c = pick(ch, "SsaL", f.Sofa, scale(f.Sofa, 0.85), scale(f.Sofa, 0.7), f.SofaLeg)
+		c, ok = pick(ch, "SsaL", f.Sofa, scale(f.Sofa, 0.85), scale(f.Sofa, 0.7), f.SofaLeg)
 	case piecePlant:
-		c = pick(ch, "LPB", f.Leaf, f.Pot, f.PotBase)
+		c, ok = pick(ch, "LPB", f.Leaf, f.Pot, f.PotBase)
 	case pieceBed:
-		c = pick(ch, "RP", t.Pet.BedRim, t.Pet.BedPad)
+		c, ok = pick(ch, "RP", t.Pet.BedRim, t.Pet.BedPad)
 	case pieceBowl:
 		if ch == 'F' && n == 0 {
 			return c, false
 		}
-		c = pick(ch, "BF", t.Pet.Bowl, t.Pet.Food)
+		c, ok = pick(ch, "BF", t.Pet.Bowl, t.Pet.Food)
 	case pieceWall:
-		c = pick(ch, "TFPB", t.WallTop, t.WallFill, t.WallPanel, t.Baseboard)
+		c, ok = pick(ch, "TFPB", t.WallTop, t.WallFill, t.WallPanel, t.Baseboard)
 	case pieceFloor:
-		c = pick(ch, "ABS", t.FloorA, t.FloorB, t.FloorSeam)
+		c, ok = pick(ch, "ABS", t.FloorA, t.FloorB, t.FloorSeam)
 	}
-	if ch == '.' || ch == '#' {
-		return c, false
+	if ok {
+		return c, true
 	}
-	return c, true
+	return t.ownInk(ch)
 }
 
-// pick is the color in colors at the place of ch in letters.
-func pick(ch byte, letters string, colors ...screen.RGB) screen.RGB {
+// pick is the color in colors at the place of ch in letters, if ch is one.
+func pick(ch byte, letters string, colors ...screen.RGB) (screen.RGB, bool) {
 	if i := strings.IndexByte(letters, ch); i >= 0 {
-		return colors[i]
+		return colors[i], true
 	}
-	return screen.RGB{}
+	return screen.RGB{}, false
 }
 
 // readPieces reads the pieces of folder (furniture or room) of fsys; dir is
@@ -336,7 +337,7 @@ func (t *Theme) readPieces(fsys fs.FS, folder, dir, kind string) error {
 		}
 	}
 	return readFiles(fsys, folder, dir, kind, folder, names, func(i int, path string, src []byte) error {
-		rows, err := parsePiece(path, src, ids[i])
+		rows, err := parsePiece(path, src, ids[i], t.ownLetters())
 		if err != nil {
 			return err
 		}
@@ -346,8 +347,8 @@ func (t *Theme) readPieces(fsys fs.FS, folder, dir, kind string) error {
 }
 
 // parsePiece reads the file of piece p at path: one grid of the piece's
-// size in its letters.
-func parsePiece(path string, src []byte, p pieceID) (piece, error) {
+// size in its letters or own, the theme's own letters.
+func parsePiece(path string, src []byte, p pieceID, own string) (piece, error) {
 	spec := pieceSpecs[p]
 	what, maxH, rowsWant, colsWant := "piece", spec.h, strconv.Itoa(spec.h), strconv.Itoa(spec.w)
 	if spec.tile() {
@@ -386,11 +387,9 @@ func parsePiece(path string, src []byte, p pieceID) (piece, error) {
 		}
 		for col := 0; col < len(row); col++ {
 			ch := row[col]
-			if spec.tile() && !strings.ContainsRune(spec.letters, rune(ch)) {
-				return nil, fail(n, "unknown letter %q in column %d; use %s", ch, col+1, spaced(spec.letters))
-			}
-			if ch != '.' && !strings.ContainsRune(spec.letters, rune(ch)) {
-				return nil, fail(n, "unknown letter %q in column %d; use %s or .", ch, col+1, spaced(spec.letters))
+			known := strings.IndexByte(spec.letters, ch) >= 0 || strings.IndexByte(own, ch) >= 0
+			if !known && (ch != '.' || spec.tile()) {
+				return nil, fail(n, "unknown letter %q in column %d; %s", ch, col+1, useLetters(spec.letters, own, !spec.tile()))
 			}
 			if p != pieceDesk {
 				continue

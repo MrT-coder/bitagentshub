@@ -168,7 +168,11 @@ func DrawPet(buf *screen.Buffer, l Layout, mood pet.Mood, tick int) {
 	cx, cy := p.x+1, p.y+2
 	for dy, row := range t.catFrame(mood, tick) {
 		for dx := 0; dx < len(row); dx++ {
-			if c, ok := t.Pet.color(row[dx]); ok {
+			c, ok := t.Pet.color(row[dx])
+			if !ok {
+				c, ok = t.ownInk(row[dx])
+			}
+			if ok {
 				buf.Pixel(cx+dx, cy+dy, c)
 			}
 		}
@@ -199,17 +203,18 @@ func (t *Theme) readPet(fsys fs.FS, dir string) error {
 		names = append(names, pet.Mood(m).String())
 	}
 	names = append(names, pieceSpecs[pieceBed].name, pieceSpecs[pieceBowl].name)
+	own := t.ownLetters()
 	return readFiles(fsys, "pet", dir, "pet file", "pet", names, func(i int, path string, src []byte) error {
 		if i >= moodCount {
 			p := []pieceID{pieceBed, pieceBowl}[i-moodCount]
-			rows, err := parsePiece(path, src, p)
+			rows, err := parsePiece(path, src, p, own)
 			if err != nil {
 				return err
 			}
 			t.pieces[p] = rows
 			return nil
 		}
-		g := grids{what: "pet " + names[i], w: catW, h: catH, frames: petSpecs[i].frames, letters: catLetters}
+		g := grids{what: "pet " + names[i], w: catW, h: catH, frames: petSpecs[i].frames, letters: catLetters, own: own}
 		rows, err := g.parse(path, src)
 		if err != nil {
 			return err

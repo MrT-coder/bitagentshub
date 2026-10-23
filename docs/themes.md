@@ -212,6 +212,15 @@ background = "#16181d"   # windows: terminals, board, settings
 text       = "#dcdfe4"   # also terminal text without colors of its own
 accent     = "#61afef"   # window borders
 
+[custom]
+# Colors of your own, for the letters below.
+antenna = "#39ff14"
+
+[letters]
+# Letters your grid files may use besides the built-in ones.
+Z = "custom.antenna"
+g = "furniture.glass"
+
 [terminal]
 # The 16 ANSI colors programs ask for: black, red, green, yellow, blue,
 # magenta, cyan, white, then their bright versions.
@@ -229,6 +238,47 @@ palette = ["#06080f", "#cb7c94", "#b7cc85", "#ffe066", "#7fb4ca", "#ff8dd7", "#7
   16; programs that ask for exact RGB colors or 256-color indexes past 15
   keep them.
 - Applying a theme recolors open windows and terminals at once.
+- `[custom]` and `[letters]` are explained in
+  [Your own colors and letters](#your-own-colors-and-letters).
+
+## Your own colors and letters
+
+Every grid file draws with its own letters, each one standard color. When a
+shape needs a color no standard one fits, like an alien's antenna, give it
+a name in `[custom]` and a letter in `[letters]`:
+
+```toml
+[custom]
+antenna = "#39ff14"
+
+[letters]
+Z = "custom.antenna"    # one of your [custom] colors
+g = "furniture.glass"   # or any standard color, by section and key
+```
+
+Now `Z` and `g` work in every grid file of the theme: poses, room tiles,
+furniture and the pet. An alien with a green antenna is a pose with a `Z`
+on top of its head.
+
+- A `[custom]` key is lowercase letters, digits and `_`; its value is one
+  `#rrggbb` color.
+- A `[letters]` key is one letter, and not one the built-in grids already
+  use, so a built-in letter always means the same thing. The free letters
+  are `D I J O Q V X Y Z` and `c d e f g h i j l m n o p q r t u v x y z`;
+  `.`, `#` and the digits are taken too.
+- A letter's value is a role, `"section.key"`: one of the theme's `[custom]`
+  colors as `custom.<key>`, or a standard color like `room.baseboard`. It is
+  one color: lists such as `palette.agents` or `furniture.books` are refused.
+
+A palette (see [Wear another theme's colors](#wear-another-themes-colors))
+carries its `[custom]` colors too: each one replaces the theme's color of
+the same key. The theme keeps its letters and its shapes, and a letter of a
+standard color, like `g` above, takes the palette's color for it.
+
+A setting that breaks a rule stops the office at start with an error naming
+`theme.toml`, the line and the setting; the error for a taken letter lists
+the free ones. A grid file with a letter that is neither its own nor one of
+the theme's says which letters it may use, the theme's included.
 
 ## Poses
 
@@ -263,8 +313,8 @@ Rules the office checks when it starts:
 
 - **Seated poses leave the last two rows empty** (`.`): the desk covers the
   legs.
-- Every frame is 8 columns by 14 rows, uses only the letters above, and each
-  pose has its number of frames.
+- Every frame is 8 columns by 14 rows, uses only the letters above and
+  the theme's own [letters](#your-own-colors-and-letters), and each pose has its number of frames.
 
 A theme that breaks a rule, or has a bad color, an empty color list, an
 unknown setting or section in `theme.toml`, or a `.txt` file in
@@ -318,7 +368,8 @@ Rules the office checks when it starts:
 
 - The wall has exactly 12 rows; the floor has 1 to 32.
 - Every row of a tile has the same width, 1 to 64 columns.
-- A tile uses only its own letters: no `.` and no other letter.
+- A tile uses only its own letters and the theme's own [letters](#your-own-colors-and-letters):
+  no `.` and no other letter.
 
 A tile that breaks a rule, or a `.txt` file in `room/` that is not `wall` or
 `floor`, stops the office at start with an error naming the file, the line
@@ -420,7 +471,8 @@ box, so desks, paths and clicks stay where they are.
 
 Rules the office checks when it starts:
 
-- Every piece has exactly its size and uses only its own letters and `.`.
+- Every piece has exactly its size and uses only its own letters, `.` and
+  the theme's own [letters](#your-own-colors-and-letters).
 - **The desk's screen is fixed**: `#` fills exactly the 6×5 block at
   columns 3–8 of rows 2–6, where the office shows what the agent does. A `#`
   anywhere else, or a cell of that block that is not `#`, is an error.
@@ -486,10 +538,11 @@ The rest of the corner is two pieces, drawn like furniture:
 
 Rules the office checks when it starts:
 
-- Every frame is 12 columns by 8 rows and uses only the letters above and
-  `.`; each mood file has exactly its number of frames.
+- Every frame is 12 columns by 8 rows and uses only the letters above, `.`
+  and the theme's own [letters](#your-own-colors-and-letters); each mood file has exactly its
+  number of frames.
 - The bed and the bowl have exactly their size and use only their own
-  letters and `.`.
+  letters, `.` and the theme's own letters.
 
 A pet file that breaks a rule, or a `.txt` file in `pet/` that is not one
 of the files above, stops the office at start with an error naming the
