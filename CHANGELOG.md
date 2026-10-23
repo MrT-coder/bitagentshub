@@ -3,7 +3,7 @@
 Notable changes to BitAgentsHub, newest first. The office shows this file
 in the hub's About tab, so every release adds its section here.
 
-## Unreleased
+## v0.4.0 (2026-10-23)
 
 - `bah upgrade` replaces bah with the latest release, checked against its
   checksums, and the office's header says when a newer release exists (at
