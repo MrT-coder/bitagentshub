@@ -3,6 +3,13 @@
 Notable changes to BitAgentsHub, newest first. The office shows this file
 in the hub's About tab, so every release adds its section here.
 
+## v0.5.0 (2026-10-23)
+
+- The settings tab shows Theme and Colors side by side: Theme lists
+  `default` and the themes that draw their own shapes, Colors the themes
+  that only recolor, and `enter` there applies the palette (it replaces the
+  `c` key).
+
 ## v0.4.0 (2026-10-23)
 
 - `bah upgrade` replaces bah with the latest release, checked against its
