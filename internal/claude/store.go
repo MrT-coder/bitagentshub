@@ -209,6 +209,7 @@ type session struct {
 	tool     string               // tool of the pending tool_use, if any
 	mainSeen time.Time            // mtime of the main transcript
 	subs     map[string]time.Time // subagent path -> mtime
+	next     string               // the session it went on in, when resumed
 }
 
 type file struct {
@@ -375,6 +376,7 @@ func (s *Store) tail(path string, f *file, size int64) {
 var (
 	markAssistant = []byte(`"type":"assistant"`)
 	markUser      = []byte(`"type":"user"`)
+	markContinued = []byte(`"type":"continued-in"`)
 )
 
 type rawLine struct {
@@ -400,8 +402,19 @@ func (s *Store) apply(sess *session, f *file, line []byte) {
 	if !bytes.Contains(line, markAssistant) {
 		// User lines carry no usage and are often large tool results, so
 		// they only update state and are never decoded.
-		if !f.subagent && bytes.Contains(line, markUser) {
+		switch {
+		case f.subagent:
+		case bytes.Contains(line, markUser):
 			sess.state = StateThinking
+		case bytes.Contains(line, markContinued):
+			// Resuming a session goes on in a new transcript; this line,
+			// the old one's last, names it.
+			var c struct {
+				Next string `json:"continuedInSessionId"`
+			}
+			if json.Unmarshal(line, &c) == nil {
+				sess.next = c.Next
+			}
 		}
 		return
 	}
@@ -529,6 +542,7 @@ func (s *Store) snapshot(now time.Time) Snapshot {
 			Activity:        activityOf(state, sess.tool),
 		})
 	}
+	snap.Agents = s.continued(snap.Agents)
 	for _, p := range projects {
 		snap.Projects = append(snap.Projects, p)
 	}
@@ -539,6 +553,37 @@ func (s *Store) snapshot(now time.Time) Snapshot {
 		return snap.Agents[i].LastActivity.After(snap.Agents[j].LastActivity)
 	})
 	return snap
+}
+
+// continued shows a session that went on in another one, as when it is
+// resumed, as the live session it led to, under its own id: the program the
+// office started with that id now writes the other transcript.
+func (s *Store) continued(agents []Agent) []Agent {
+	live := make(map[string]Agent, len(agents))
+	for _, a := range agents {
+		live[a.ID] = a
+	}
+	out := agents[:0]
+	for _, a := range agents {
+		if sess := s.sessions[a.ID]; sess == nil || sess.next == "" {
+			out = append(out, a) // a session that went on is replaced below
+		}
+	}
+	for id, sess := range s.sessions {
+		if sess.next == "" {
+			continue
+		}
+		end, seen := sess, map[string]bool{id: true}
+		for end.next != "" && !seen[end.next] && s.sessions[end.next] != nil {
+			seen[end.next] = true
+			end = s.sessions[end.next]
+		}
+		if a, ok := live[end.id]; ok && end != sess {
+			a.ID = id
+			out = append(out, a)
+		}
+	}
+	return out
 }
 
 // projectFromSlug is the fallback when no cwd was seen: Claude Code names

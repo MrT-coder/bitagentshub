@@ -330,3 +330,38 @@ func TestStore_ListsTheProjectsOfEverySessionItRead(t *testing.T) {
 		t.Errorf("projects = %+v, want most recent first", snap.Projects)
 	}
 }
+
+// continuedIn is the line Claude Code ends a transcript with when the
+// session goes on in another one, as when it is resumed.
+func continuedIn(from, to string) string {
+	return fmt.Sprintf(`{"type":"continued-in","timestamp":"2026-10-20T14:00:00Z","sessionId":%q,"continuedInSessionId":%q}`+"\n", from, to)
+}
+
+func TestStore_ShowsAContinuedSessionUnderTheIDItStartedWith(t *testing.T) {
+	root := t.TempDir()
+	now := time.Date(2026, 10, 20, 15, 0, 0, 0, time.UTC)
+	old := now.Add(-2 * time.Hour)
+	writeFile(t, filepath.Join(root, "p", "a.jsonl"),
+		assistantLine("a1", "2026-10-20T13:00:00Z", "end_turn", 0, 1, 0, 0)+continuedIn("a", "b"), old)
+	writeFile(t, filepath.Join(root, "p", "b.jsonl"),
+		assistantLine("b1", "2026-10-20T14:00:00Z", "end_turn", 0, 1, 0, 0)+continuedIn("b", "c"), old)
+	writeFile(t, filepath.Join(root, "p", "c.jsonl"), toolLine("c1", "Bash"), now)
+
+	agents := map[string]Agent{}
+	for _, a := range NewStore(root, Options{}).Poll(now).Agents {
+		agents[a.ID] = a
+	}
+	a, ok := agents["a"]
+	if !ok || a.State != StateTool || a.Tool != "Bash" || !a.LastActivity.Equal(now) {
+		t.Fatalf("a should show c, the session it went on in: %+v (ok %v)", a, ok)
+	}
+	if c, ok := agents["c"]; !ok || c.State != StateTool {
+		t.Errorf("c is still listed under its own id: %+v (ok %v)", c, ok)
+	}
+	if b, ok := agents["b"]; !ok || b.State != StateTool {
+		t.Errorf("b went on in c too: %+v (ok %v)", b, ok)
+	}
+	if len(agents) != 3 {
+		t.Errorf("agents = %d, want a, b and c once each", len(agents))
+	}
+}
