@@ -92,8 +92,10 @@ type Model struct {
 	hubTab      int
 	aboutScroll int
 	changelog   string
-	petName     string // "" until the pet is named
-	renaming    bool   // the pet tab is taking a new name in petDraft
+	updateCheck func() string // nil when updates are not looked for
+	newer       string        // a newer release's tag, once the check finds one
+	petName     string        // "" until the pet is named
+	renaming    bool          // the pet tab is taking a new name in petDraft
 	petDraft    string
 	petStatus   string         // what the pet tab says of the last rename
 	hoverPet    bool           // the mouse rests on the pet
@@ -239,7 +241,7 @@ func (m Model) startHosted(id, dir string, argv []string, w, h int) (Terminal, b
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(win32Input(), m.poll(), m.herdrPoll(), m.waitTerm(), m.gitPoll(), m.boardPoll())
+	return tea.Batch(win32Input(), m.poll(), m.herdrPoll(), m.waitTerm(), m.gitPoll(), m.boardPoll(), m.checkUpdate())
 }
 
 // modifierAlone reports a modifier or lock key pressed by itself, which
@@ -362,6 +364,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 	case usageMsg:
 		m.reports, m.usageAt = msg, time.Now()
+	case updateMsg:
+		m.newer = string(msg)
 	case petNameMsg:
 		return m.petNamed(msg), nil
 	case settingsMsg:
@@ -563,6 +567,9 @@ func (m Model) render() string {
 	}
 	if s.Pending > 0 {
 		summary += i18n.Tf(" · reading %d transcripts", s.Pending)
+	}
+	if m.newer != "" {
+		summary += i18n.Tf(" · %s available: bah upgrade", m.newer)
 	}
 	b.WriteString(dimStyle.Render(ansi.Truncate(summary, max(0, w-13), "…"))) // 🐟 takes two columns
 	b.WriteString("\n\n")

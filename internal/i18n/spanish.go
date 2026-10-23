@@ -7,6 +7,7 @@ var spanish = map[string]string{
 	"Reading transcripts…":                     "Leyendo transcripciones…",
 	" · %d stations · %d working":              " · %d estaciones · %d trabajando",
 	" · reading %d transcripts":                " · leyendo %d transcripciones",
+	" · %s available: bah upgrade":             " · %s disponible: bah upgrade",
 	"No agents running. Press n to start one.": "No hay agentes en marcha. Presiona n para iniciar uno.",
 	" office ": " oficina ",
 	" … waiting for a key: 1-9 opens that station":                                    " … esperando una tecla: 1-9 abre esa estación",

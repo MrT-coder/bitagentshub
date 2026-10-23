@@ -15,6 +15,10 @@ func String() string {
 	return resolve(version, info, ok)
 }
 
+// Release reports whether this is a release build, whose version was set
+// when it was built; a go install or local build is not one.
+func Release() bool { return version != "" }
+
 func resolve(linked string, info *debug.BuildInfo, ok bool) string {
 	if linked != "" {
 		return linked

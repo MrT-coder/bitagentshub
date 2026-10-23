@@ -78,6 +78,31 @@ With Go: `go install github.com/MrT-coder/bitagentshub@latest`.
 
 `bah -version` prints the installed version.
 
+### Upgrade
+
+```sh
+bah upgrade
+```
+
+downloads the latest release for your OS and architecture, checks it
+against `checksums.txt` like the installers do, and puts it in place of the
+`bah` you ran. The running binary is moved aside to `bah.exe.old` (or
+`bah.old`), since Windows cannot overwrite a running program; the next
+upgrade removes it. Restart the office to use the new version; agents the
+daemon keeps run on until `bah daemon stop`. `GITHUB_TOKEN` is used when
+set. A `go install` or local build is not a release: it is not replaced,
+and the office does not look for releases for it.
+
+When a newer release exists, the office's header says so
+(`· v0.4.0 available: bah upgrade`). It asks GitHub at most once a day, as
+the office opens, and remembers the answer in the cache folder; without a
+network it says nothing. To stop asking:
+
+```toml
+[updates]
+check = false
+```
+
 ## Run
 
 ```sh

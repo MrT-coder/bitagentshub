@@ -3,6 +3,19 @@
 Notable changes to BitAgentsHub, newest first. The office shows this file
 in the hub's About tab, so every release adds its section here.
 
+## Unreleased
+
+- `bah upgrade` replaces bah with the latest release, checked against its
+  checksums, and the office's header says when a newer release exists (at
+  most one check a day; `[updates] check = false` turns it off).
+- Theme scenes: a theme folder can redraw the furniture (`furniture/`), the
+  pet, its bed and its bowl (`pet/`) and the wall and floor (`room/`), add
+  colors and letters of its own (`[custom]`, `[letters]`), and wear another
+  theme's colors with `[theme] palette` (`c` in the settings tab).
+  `examples/themes/space` is a spaceship made this way.
+- An agent that moves into a folder of its project stays in its project's
+  room.
+
 ## v0.3.0 (2026-10-21)
 
 - Themes color the windows too: `[ui]` sets the background, text and

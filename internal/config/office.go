@@ -37,6 +37,23 @@ func terminalSection(section map[string]any) (int, error) {
 	return lines, nil
 }
 
+// updatesSection reads [updates]: whether to look for a newer release,
+// which it does unless told not to.
+func updatesSection(section map[string]any) (bool, error) {
+	check := true
+	for key, v := range section {
+		if key != "check" {
+			return false, fmt.Errorf("updates.%s: unknown field", key)
+		}
+		b, ok := v.(bool)
+		if !ok {
+			return false, fmt.Errorf("updates.check: %v is not true or false", v)
+		}
+		check = b
+	}
+	return check, nil
+}
+
 // uiSection reads [ui]: the office's language.
 func uiSection(section map[string]any) (string, error) {
 	lang := ""

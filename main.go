@@ -53,6 +53,12 @@ func main() {
 		}
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "upgrade" {
+		if err := runUpgrade(os.Args[2:]); err != nil {
+			fail(err)
+		}
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "daemon" {
 		if err := runDaemon(os.Args[2:]); err != nil {
 			fail(err)
@@ -120,6 +126,9 @@ func main() {
 	}
 	if state, err := stateDir(); err == nil {
 		model = model.WithUsage(usage.NewClaude(state), usage.NewCodex(usage.CodexHome()))
+		if cfg.CheckUpdates {
+			model = model.WithUpdateCheck(updateCheck(state))
+		}
 		model = model.WithSettings(&officeSettings{
 			configPath:   *configPath,
 			themesDir:    config.ThemesDir(*configPath),
@@ -160,6 +169,7 @@ func printUsage(w io.Writer) {
                                  write the built-in theme, or another, to a folder to edit
   bah statusline install|uninstall
                                  let Claude Code hand its limits to the usage tab
+  bah upgrade                    replace bah with the latest release
 
 flags:
 `)

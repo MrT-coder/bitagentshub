@@ -61,6 +61,9 @@ type Config struct {
 	Language   string // "en" or "es"; "" follows the system
 	PetName    string // "" while the pet has no name
 	Scrollback int    // lines of history each terminal keeps
+	// CheckUpdates asks GitHub, at most once a day, whether a newer
+	// release exists, to say so in the header.
+	CheckUpdates bool
 }
 
 // Board is the task board: daily notes per project in Dir, opened with
@@ -143,6 +146,7 @@ func Load(path string) (Config, error) {
 		UI    map[string]any `toml:"ui"`
 		Pet   map[string]any `toml:"pet"`
 		Term  map[string]any `toml:"terminal"`
+		Upd   map[string]any `toml:"updates"`
 	}
 	if path != "" {
 		_, err := toml.DecodeFile(path, &file)
@@ -203,7 +207,11 @@ func Load(path string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("%s: %w", path, err)
 	}
-	return Config{Keys: k, Theme: theme, Palette: palette, Board: b, Language: lang, PetName: pet, Scrollback: lines}, nil
+	check, err := updatesSection(file.Upd)
+	if err != nil {
+		return Config{}, fmt.Errorf("%s: %w", path, err)
+	}
+	return Config{Keys: k, Theme: theme, Palette: palette, Board: b, Language: lang, PetName: pet, Scrollback: lines, CheckUpdates: check}, nil
 }
 
 // boardSection reads [board]: an absolute folder, since the office runs from

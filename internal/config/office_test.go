@@ -57,3 +57,22 @@ func TestTheTerminalSectionSetsTheHistory(t *testing.T) {
 		}
 	}
 }
+
+func TestTheUpdatesSectionTurnsTheCheckOff(t *testing.T) {
+	if c, err := Load(write(t, "")); err != nil || !c.CheckUpdates {
+		t.Errorf("no [updates]: check %v, %v, want on", c.CheckUpdates, err)
+	}
+	if c, err := Load(""); err != nil || !c.CheckUpdates {
+		t.Errorf("no config file: check %v, %v, want on", c.CheckUpdates, err)
+	}
+	if c, err := Load(write(t, "[updates]\ncheck = false\n")); err != nil || c.CheckUpdates {
+		t.Errorf("check = false: got %v, %v", c.CheckUpdates, err)
+	}
+	for _, bad := range []string{`check = "no"`, `notify = false`} {
+		path := write(t, "[updates]\n"+bad+"\n")
+		_, err := Load(path)
+		if err == nil || !strings.Contains(err.Error(), path) || !strings.Contains(err.Error(), "updates.") {
+			t.Errorf("%s: error %v should name the file and the updates field", bad, err)
+		}
+	}
+}
