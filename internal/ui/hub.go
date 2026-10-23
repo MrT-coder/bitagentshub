@@ -7,6 +7,7 @@ import (
 
 	"github.com/MrT-coder/bitagentshub/internal/config"
 	"github.com/MrT-coder/bitagentshub/internal/i18n"
+	"github.com/MrT-coder/bitagentshub/internal/rest"
 	"github.com/MrT-coder/bitagentshub/internal/screen"
 	"github.com/MrT-coder/bitagentshub/internal/version"
 )
@@ -200,6 +201,10 @@ func (m Model) drawPetTab(buf *screen.Buffer) {
 	}
 	if m.board.Dir != "" {
 		lines = append(lines, settingsLine{"", modalText()}, settingsLine{i18n.Tf("🐟 %d fish earned in all, one per task checked off", m.stars.Total), modalDim()})
+	}
+	if m.rest != nil {
+		d := m.rest.Day()
+		lines = append(lines, settingsLine{"", modalText()}, settingsLine{i18n.Tf("⏱ %s supervised today · %d breaks", rest.Short(d.Supervised), d.Breaks), modalDim()})
 	}
 	lines = append(lines, settingsLine{"", modalText()},
 		settingsLine{i18n.T("Agents wake it, token limits tire it, finished tasks feed it."), modalDim()})

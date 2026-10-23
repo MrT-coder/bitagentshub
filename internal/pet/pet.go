@@ -1,11 +1,14 @@
 // Package pet reads the office pet's mood from what the office already
 // knows: the agents at work, the token limits the tools report and the
-// tasks checked off on the board, each one a fish it eats. Token spend never
-// feeds it.
+// tasks checked off on the board, each one a fish it eats, and the time the
+// user has supervised without a break. Token spend never feeds it.
 package pet
 
 import (
+	"time"
+
 	"github.com/MrT-coder/bitagentshub/internal/i18n"
+	"github.com/MrT-coder/bitagentshub/internal/rest"
 	"github.com/MrT-coder/bitagentshub/internal/usage"
 )
 
@@ -59,6 +62,10 @@ type Telemetry struct {
 	Board    bool           // a board is on; without one the pet never goes hungry
 	FedToday int            // tasks checked off today, its fish
 	Eating   bool           // a task was just checked off
+	// Supervised is how long the user has supervised agents since the last
+	// break; RestDue says a break is due, which tires the pet.
+	Supervised time.Duration
+	RestDue    bool
 }
 
 // State is the pet's mood and the reasons behind it, one per line.
@@ -85,6 +92,9 @@ func Read(t Telemetry) State {
 	default:
 		s.Why = append(s.Why, i18n.T("no agent working"))
 	}
+	if t.RestDue {
+		s.Why = append(s.Why, i18n.Tf("%s supervised without a break", rest.Short(t.Supervised)))
+	}
 	tool, win, used := highest(t.Reports)
 	if tool == "" {
 		s.Why = append(s.Why, i18n.T("no limits reported"))
@@ -110,6 +120,8 @@ func Read(t Telemetry) State {
 		s.Mood = Alert
 	case used >= exhaustedAt:
 		s.Mood = Exhausted
+	case t.RestDue:
+		s.Mood = Tired
 	case hungry:
 		s.Mood = Hungry
 	case used >= tiredAt:

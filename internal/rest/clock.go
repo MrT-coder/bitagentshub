@@ -7,7 +7,10 @@
 // measured how fast supervising coding agents tires people.
 package rest
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // Config is how the clock judges presence, breaks and load.
 type Config struct {
@@ -134,3 +137,12 @@ func (c *Clock) State() State {
 
 // Day is today's record, to save.
 func (c *Clock) Day() Day { return c.day }
+
+// Short writes d in minutes, as "52m" or "1h35m".
+func Short(d time.Duration) string {
+	m := int(d / time.Minute)
+	if m < 60 {
+		return fmt.Sprintf("%dm", m)
+	}
+	return fmt.Sprintf("%dh%02dm", m/60, m%60)
+}

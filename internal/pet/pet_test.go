@@ -2,7 +2,9 @@ package pet
 
 import (
 	"reflect"
+	"slices"
 	"testing"
+	"time"
 
 	"github.com/MrT-coder/bitagentshub/internal/usage"
 )
@@ -26,6 +28,8 @@ func TestTheMoodFollowsTheTelemetry(t *testing.T) {
 		{"hungry and exhausted", Telemetry{Board: true, Reports: []usage.Report{limit("codex", "5h", 95)}}, Exhausted},
 		{"an agent blocked", Telemetry{Blocked: 1, Board: true, Reports: []usage.Report{limit("codex", "5h", 95)}}, Alert},
 		{"a star just checked", Telemetry{Eating: true, Blocked: 1, Board: true, FedToday: 1}, Eating},
+		{"a break is due", Telemetry{Working: 1, RestDue: true}, Tired},
+		{"a break is due and no fish", Telemetry{Working: 1, Board: true, RestDue: true}, Tired},
 	} {
 		if got := Read(c.in).Mood; got != c.want {
 			t.Errorf("%s: mood %v, want %v", c.name, got, c.want)
@@ -69,5 +73,15 @@ func TestMoodsHaveNames(t *testing.T) {
 		if m.String() != want {
 			t.Errorf("%d: %q, want %q", m, m.String(), want)
 		}
+	}
+}
+
+func TestTheStateSaysHowLongSinceTheLastBreak(t *testing.T) {
+	why := Read(Telemetry{Working: 1, Supervised: 52 * time.Minute, RestDue: true}).Why
+	if !slices.Contains(why, "52m supervised without a break") {
+		t.Errorf("why = %q, want the time since the last break", why)
+	}
+	if why := Read(Telemetry{Working: 1, Supervised: 10 * time.Minute}).Why; slices.Contains(why, "10m supervised without a break") {
+		t.Errorf("before a break is due the pet says nothing of it: %q", why)
 	}
 }

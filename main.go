@@ -129,6 +129,7 @@ func main() {
 		if cfg.CheckUpdates {
 			model = model.WithUpdateCheck(updateCheck(state))
 		}
+		model = model.WithRest(cfg.Rest, filepath.Join(state, "rest.json"))
 		model = model.WithSettings(&officeSettings{
 			configPath:   *configPath,
 			themesDir:    config.ThemesDir(*configPath),

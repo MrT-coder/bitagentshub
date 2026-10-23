@@ -130,3 +130,11 @@ func TestDay_SurvivesARestartUnlessABreakPassed(t *testing.T) {
 		t.Errorf("no log yet: %+v %v", d, err)
 	}
 }
+
+func TestShort(t *testing.T) {
+	for d, want := range map[time.Duration]string{0: "0m", 52*time.Minute + 30*time.Second: "52m", 95 * time.Minute: "1h35m", 5 * time.Hour: "5h00m"} {
+		if got := Short(d); got != want {
+			t.Errorf("Short(%v) = %q, want %q", d, got, want)
+		}
+	}
+}

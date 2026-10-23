@@ -64,6 +64,7 @@ type Config struct {
 	// CheckUpdates asks GitHub, at most once a day, whether a newer
 	// release exists, to say so in the header.
 	CheckUpdates bool
+	Rest         Rest
 }
 
 // Board is the task board: daily notes per project in Dir, opened with
@@ -147,6 +148,7 @@ func Load(path string) (Config, error) {
 		Pet   map[string]any `toml:"pet"`
 		Term  map[string]any `toml:"terminal"`
 		Upd   map[string]any `toml:"updates"`
+		Rest  map[string]any `toml:"rest"`
 	}
 	if path != "" {
 		_, err := toml.DecodeFile(path, &file)
@@ -211,7 +213,11 @@ func Load(path string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("%s: %w", path, err)
 	}
-	return Config{Keys: k, Theme: theme, Palette: palette, Board: b, Language: lang, PetName: pet, Scrollback: lines, CheckUpdates: check}, nil
+	rst, err := restSection(file.Rest)
+	if err != nil {
+		return Config{}, fmt.Errorf("%s: %w", path, err)
+	}
+	return Config{Keys: k, Theme: theme, Palette: palette, Board: b, Language: lang, PetName: pet, Scrollback: lines, CheckUpdates: check, Rest: rst}, nil
 }
 
 // boardSection reads [board]: an absolute folder, since the office runs from
