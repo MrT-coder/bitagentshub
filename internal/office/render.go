@@ -118,20 +118,12 @@ func drawRoom(buf *screen.Buffer, l Layout) {
 			buf.Pixel(x, y, roomPixel(x, y))
 		}
 	}
-	f := &cur().Furniture
+	t := cur()
 	for _, w := range l.Windows {
-		fillRect(buf, w.x, w.y, w.w, w.h, f.WindowFrame)
-		fillRect(buf, w.x+1, w.y+1, w.w-2, w.h-2, f.Glass)
-		for i := 0; i < 3; i++ {
-			buf.Pixel(w.x+3+i, w.y+1+i, f.GlassShine)
-		}
-		fillRect(buf, w.x+w.w/2, w.y+1, 1, w.h-2, f.WindowFrame)
-		fillRect(buf, w.x+1, w.y+w.h/2, w.w-2, 1, f.WindowFrame)
+		t.drawPiece(buf, pieceWindow, w.x, w.y, 0)
 	}
 	for i, p := range l.Paintings {
-		fillRect(buf, p.x, p.y, p.w, p.h, f.PaintingFrame)
-		fillRect(buf, p.x+1, p.y+1, p.w-2, p.h-2, f.Paintings[i%len(f.Paintings)])
-		fillRect(buf, p.x+1, p.y+p.h-3, p.w-2, 2, f.PaintingHill)
+		t.drawPiece(buf, piecePainting, p.x, p.y, i)
 	}
 }
 
@@ -170,32 +162,22 @@ func carpet(buf *screen.Buffer, a Area, c screen.RGB) {
 
 func clock(buf *screen.Buffer, r rect, tick int) {
 	t := cur()
-	fillRect(buf, r.x, r.y, r.w, r.h, t.Furniture.ClockFace)
-	buf.Pixel(r.x+2, r.y+2, t.Baseboard)
+	t.drawPiece(buf, pieceClock, r.x, r.y, 0)
 	// The hand turns once a minute at the default frame rate.
 	hand := [][2]int{{2, 1}, {3, 1}, {3, 2}, {3, 3}, {2, 3}, {1, 3}, {1, 2}, {1, 1}}[(tick/60)%8]
 	buf.Pixel(r.x+hand[0], r.y+hand[1], t.Furniture.ClockHand)
 }
 
 func chair(buf *screen.Buffer, st Workstation) {
-	f := &cur().Furniture
-	fillRect(buf, st.X+7, st.Y+3, 10, 6, f.ChairBack)
-	fillRect(buf, st.X+7, st.Y+3, 10, 1, f.ChairEdge)
+	cur().drawPiece(buf, pieceChair, st.X+7, st.Y+3, 0)
 }
 
 // desk draws the desk with its monitor and a mug. The monitor shows what
 // the agent is doing and is off while it is not working.
 func desk(buf *screen.Buffer, st Workstation, ag claude.Agent, tick int) {
-	x, y, f := st.X, st.Y, &cur().Furniture
-	fillRect(buf, x+monitorX, y+monitorY, 8, 7, f.Bezel)
-	monitorScreen(buf, f, x+monitorX+1, y+monitorY+1, ag, tick)
-	fillRect(buf, x+monitorX+3, y+monitorY+7, 2, 1, f.Bezel)
-	fillRect(buf, x+1, y+deskY, stationW-2, 2, f.DeskTop)
-	fillRect(buf, x+1, y+deskY+2, stationW-2, 3, f.DeskFront)
-	fillRect(buf, x+2, y+deskY+5, 1, 1, f.DeskLeg)
-	fillRect(buf, x+stationW-3, y+deskY+5, 1, 1, f.DeskLeg)
-	fillRect(buf, x+19, y+deskY-2, 2, 2, f.Mug)
-	buf.Pixel(x+19, y+deskY-2, f.Coffee)
+	x, y, t := st.X, st.Y+monitorY, cur()
+	t.drawPiece(buf, pieceDesk, x, y, 0)
+	monitorScreen(buf, &t.Furniture, x+screenX, y+screenY, ag, tick)
 }
 
 // monitorScreen fills the 6×5 screen at (x, y).
@@ -226,43 +208,8 @@ func monitorScreen(buf *screen.Buffer, f *Furniture, x, y int, ag claude.Agent, 
 }
 
 func drawItem(buf *screen.Buffer, it Item, tick int) {
-	x, y, f := it.X, it.Y, &cur().Furniture
-	switch it.Kind {
-	case "bookshelf":
-		fillRect(buf, x, y, it.W, it.H, f.Shelf)
-		for shelf := 0; shelf < 3; shelf++ {
-			sy := y + 1 + shelf*6
-			fillRect(buf, x+1, sy, it.W-2, 5, f.ShelfBack)
-			for b := 0; b < it.W-2; b++ {
-				height := 3 + int(hash(strconv.Itoa(b*7+shelf))%3)
-				fillRect(buf, x+1+b, sy+5-height, 1, height, f.Books[(b+shelf)%len(f.Books)])
-			}
-		}
-	case "coffee":
-		fillRect(buf, x, y, it.W, it.H, f.Machine)
-		fillRect(buf, x+1, y+1, it.W-2, 3, f.MachinePanel)
-		buf.Pixel(x+it.W-2, y+2, []screen.RGB{f.MachineLight, f.MachineLightOff}[(tick/8)%2])
-		fillRect(buf, x+2, y+6, it.W-4, 4, f.MachineTray)
-		fillRect(buf, x+3, y+8, 2, 2, f.Mug)
-		fillRect(buf, x, y+it.H-2, it.W, 2, f.MachineBase)
-	case "cooler":
-		fillRect(buf, x+1, y, it.W-2, 5, f.CoolerBottle)
-		fillRect(buf, x, y+5, it.W, it.H-5, f.CoolerBody)
-		buf.Pixel(x+2, y+7, f.CoolerTap)
-	case "sofa":
-		c := f.Sofa
-		fillRect(buf, x, y, it.W, 5, scale(c, 0.85))
-		fillRect(buf, x, y+5, it.W, 3, c)
-		fillRect(buf, x, y+2, 2, 7, scale(c, 0.7))
-		fillRect(buf, x+it.W-2, y+2, 2, 7, scale(c, 0.7))
-		fillRect(buf, x+1, y+it.H-2, 1, 2, f.SofaLeg)
-		fillRect(buf, x+it.W-2, y+it.H-2, 1, 2, f.SofaLeg)
-	case "plant":
-		for _, p := range [][2]int{{2, 0}, {1, 1}, {3, 1}, {0, 2}, {2, 2}, {4, 2}, {1, 3}, {2, 3}, {3, 3}, {2, 4}, {0, 4}, {4, 4}} {
-			buf.Pixel(x+p[0]+1, y+p[1], f.Leaf)
-		}
-		fillRect(buf, x+1, y+5, 4, 4, f.Pot)
-		fillRect(buf, x+2, y+9, 2, 1, f.PotBase)
+	if p, ok := pieceNamed(it.Kind); ok {
+		cur().drawPiece(buf, p, it.X, it.Y, tick)
 	}
 }
 

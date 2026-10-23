@@ -1,14 +1,14 @@
 # Themes
 
-A theme changes the office's colors, how its people look, and the colors of
-the windows and terminals. It is a folder
+A theme changes the office's colors, how its people and its furniture look,
+and the colors of the windows and terminals. It is a folder
 of plain text files on your machine: nothing is downloaded, and you can share
 a theme by copying its folder.
 
 It covers the palettes, the colors of the room, the furniture and the pet,
-the characters' poses, the windows (terminals, board, settings) and the
-terminals' 16 ANSI colors. The shapes of the furniture and the pet are not
-themable yet.
+the characters' poses, the shapes of the furniture, the windows (terminals,
+board, settings) and the terminals' 16 ANSI colors. The shapes of the pet are
+not themable yet.
 
 ## Themes that come with the office
 
@@ -58,7 +58,8 @@ From a terminal:
 bah theme init my-theme
 ```
 
-This writes the built-in theme, every color and every pose, to the themes
+This writes the built-in theme, every color, every pose and every piece of
+furniture, to the themes
 folder next to your `config.toml`:
 
 | OS | Folder |
@@ -96,13 +97,17 @@ my-theme/
     stand-down.txt stand-up.txt stand-side.txt
     typing.txt     reading.txt  thinking.txt
     blocked.txt    asleep.txt   lounging.txt
+  furniture/
+    desk.txt       chair.txt    window.txt   painting.txt clock.txt
+    bookshelf.txt  coffee.txt   cooler.txt   sofa.txt     plant.txt
 ```
 
-`theme.toml` is required; everything in it and every pose file is optional.
-Whatever a theme leaves out, a color or a whole pose, comes from the built-in
-theme, so a theme can be a `theme.toml` with one color. Only the pose files
-listed above may sit in `characters/` (other `.txt` files are an error; files
-with other extensions are ignored).
+`theme.toml` is required; everything in it and every pose and furniture file
+is optional. Whatever a theme leaves out, a color, a whole pose or a piece of
+furniture, comes from the built-in theme, so a theme can be a `theme.toml`
+with one color. Only the files listed above may sit in `characters/` and
+`furniture/` (other `.txt` files are an error; files with other extensions
+are ignored).
 
 ## theme.toml
 
@@ -266,3 +271,115 @@ How to draw so poses look right (not checked):
 
 Two pixels share one terminal cell (the office draws with `▀` and `▄`), so a
 person is 8 cells wide and 7 lines tall on screen.
+
+## Furniture
+
+A furniture file holds one grid, the shape of one piece. Each character is
+one pixel, `.` is transparent, and each letter is one of the piece's colors
+from `[furniture]` (or `[room]`, where the table says so). Every piece has a
+fixed size: a theme changes its shape and colors inside that box, never the
+box, so desks, paths and clicks stay where they are.
+
+**`desk.txt`**: 24×13, a station from the monitor down to the desk legs.
+
+| Letter | Pixel |
+|---|---|
+| `T` | `desk_top` |
+| `F` | `desk_front` |
+| `L` | `desk_leg` |
+| `M` | `bezel` (the monitor's frame) |
+| `U` | `mug` |
+| `C` | `coffee` |
+| `#` | the monitor's screen |
+
+**`chair.txt`**: 10×6.
+
+| Letter | Pixel |
+|---|---|
+| `B` | `chair_back` |
+| `E` | `chair_edge` |
+
+**`window.txt`**: 16×8.
+
+| Letter | Pixel |
+|---|---|
+| `F` | `window_frame` |
+| `G` | `glass` |
+| `S` | `glass_shine` |
+
+**`painting.txt`**: 8×6.
+
+| Letter | Pixel |
+|---|---|
+| `F` | `painting_frame` |
+| `C` | the canvas: one of `paintings`, one per painting in turn |
+| `H` | `painting_hill` |
+
+**`clock.txt`**: 5×5. The hand is drawn over it.
+
+| Letter | Pixel |
+|---|---|
+| `F` | `clock_face` |
+| `C` | the center, `[room] baseboard` |
+
+**`bookshelf.txt`**: 14×18.
+
+| Letter | Pixel |
+|---|---|
+| `S` | `shelf` |
+| `s` | `shelf_back` |
+| `1`–`9` | a book: `1` is the first color of `books`, `2` the second, and so on, starting over when the list runs out |
+
+**`coffee.txt`**: 8×14.
+
+| Letter | Pixel |
+|---|---|
+| `M` | `machine` |
+| `P` | `machine_panel` |
+| `T` | `machine_tray` |
+| `B` | `machine_base` |
+| `U` | `mug` |
+| `L` | the light: blinks between `machine_light` and `machine_light_off` |
+
+**`cooler.txt`**: 6×12.
+
+| Letter | Pixel |
+|---|---|
+| `B` | `cooler_bottle` |
+| `C` | `cooler_body` |
+| `T` | `cooler_tap` |
+
+**`sofa.txt`**: 20×10.
+
+| Letter | Pixel |
+|---|---|
+| `S` | `sofa` |
+| `s` | `sofa`, a bit darker (the back) |
+| `a` | `sofa`, darker still (the arms) |
+| `L` | `sofa_leg` |
+
+**`plant.txt`**: 6×10.
+
+| Letter | Pixel |
+|---|---|
+| `L` | `leaf` |
+| `P` | `pot` |
+| `B` | `pot_base` |
+
+Rules the office checks when it starts:
+
+- Every piece has exactly its size and uses only its own letters and `.`.
+- **The desk's screen is fixed**: `#` fills exactly the 6×5 block at
+  columns 3–8 of rows 2–6, where the office shows what the agent does. A `#`
+  anywhere else, or a cell of that block that is not `#`, is an error.
+
+A piece that breaks a rule, or a `.txt` file in `furniture/` that is not a
+piece, stops the office at start with an error naming the file, the line and
+what the piece needs.
+
+How to draw so furniture looks right (not checked):
+
+- **Keep the bottom of floor pieces solid**: agents walk around the part of
+  a piece that stands on the floor, which stays the same whatever you draw.
+- One frame per piece: only the coffee light, the monitor's screen and the
+  clock's hand move.
