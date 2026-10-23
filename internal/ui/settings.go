@@ -17,6 +17,7 @@ import (
 type Settings interface {
 	ConfigPath() string
 	Themes() ([]string, error)      // theme folder names that have a theme.toml, sorted
+	Scenes() ([]string, error)      // the themes whose shapes are their own, not the built-in ones
 	ActiveTheme() string            // "" is the built-in theme
 	ApplyTheme(name string) error   // load, make active and save in config.toml; "" = built-in
 	NewTheme(name string) error     // write the active theme as themes/<name>
@@ -36,6 +37,7 @@ type Settings interface {
 // Sections of the settings tab that take keys; tab goes round them.
 const (
 	sectionTheme = iota
+	sectionColors
 	sectionLanguage
 	sectionLimits
 	sectionKeys
@@ -104,9 +106,11 @@ type settingsWin struct {
 	loaded     bool
 	configPath string
 	themes     []string // theme folders; the list shows the built-in one before them
+	scenes     []string // the themes with shapes of their own
 	active     string
 	palette    string // the theme whose colors the active one wears, "" for its own
-	sel        int    // index into the list, 0 being the built-in theme
+	sel        int    // index into the Theme list, 0 being the built-in theme
+	palSel     int    // index into the Colors list, 0 being the theme's own colors
 	section    int
 	limits     bool
 	limitsOK   bool // limits was read; until then it is unknown
@@ -126,6 +130,7 @@ type settingsMsg struct {
 	load       bool // the first read when the window opens
 	configPath string
 	themes     []string
+	scenes     []string
 	themesSet  bool
 	active     string
 	activeSet  bool
@@ -158,13 +163,25 @@ func (m Model) readSettings() tea.Cmd {
 	return func() tea.Msg {
 		out := settingsMsg{load: true, configPath: s.ConfigPath(), active: s.ActiveTheme(), activeSet: true,
 			palette: s.ActivePalette(), paletteSet: true, language: s.ActiveLanguage(), langSet: true}
-		themes, err := s.Themes()
-		out.themes, out.themesSet = themes, err == nil
+		var err error
+		out.themes, out.scenes, err = readThemes(s)
+		out.themesSet = err == nil
 		limits, lerr := s.LimitsInstalled()
 		out.limits, out.limitsSet = limits, lerr == nil
 		out.err = firstErr(err, lerr)
 		return out
 	}
+}
+
+// readThemes reads every theme and the ones with shapes of their own.
+func readThemes(s Settings) (themes, scenes []string, err error) {
+	if themes, err = s.Themes(); err != nil {
+		return nil, nil, err
+	}
+	if scenes, err = s.Scenes(); err != nil {
+		return nil, nil, err
+	}
+	return themes, scenes, nil
 }
 
 // firstErr keeps the first error; the window has one line for it.
@@ -192,7 +209,7 @@ func (m Model) settingsDone(msg settingsMsg) Model {
 		sw.loaded, sw.configPath = true, msg.configPath
 	}
 	if msg.themesSet {
-		sw.themes = msg.themes
+		sw.themes, sw.scenes = msg.themes, msg.scenes
 	}
 	if msg.activeSet {
 		sw.active = msg.active
@@ -210,12 +227,17 @@ func (m Model) settingsDone(msg settingsMsg) Model {
 		}
 	}
 	switch {
+	case msg.selSet && slices.Contains(sw.sceneList(), msg.selName):
+		sw.sel = index(sw.sceneList(), msg.selName)
 	case msg.selSet:
-		sw.sel = sw.index(msg.selName)
+		// A theme with the built-in shapes only lends its colors.
+		sw.palSel, sw.section = index(sw.colorList(), msg.selName), sectionColors
 	case msg.load:
-		sw.sel = sw.index(sw.active)
+		sw.sel = index(sw.sceneList(), sw.active)
+		sw.palSel = index(sw.colorList(), sw.palette)
 	}
-	sw.sel = min(sw.sel, len(sw.themes))
+	sw.sel = min(sw.sel, len(sw.sceneList())-1)
+	sw.palSel = min(sw.palSel, len(sw.colorList())-1)
 	sw.status = msg.status
 	if msg.err != nil {
 		sw.status = msg.err.Error()
@@ -223,22 +245,46 @@ func (m Model) settingsDone(msg settingsMsg) Model {
 	return m
 }
 
-// index finds a theme in the list; "" and unknown names are the built-in.
-func (sw *settingsWin) index(name string) int {
-	for i, t := range sw.themes {
-		if t == name {
-			return i + 1
+// sceneList is the Theme column: the built-in theme, then the themes with
+// shapes of their own. The active theme shows even with the built-in shapes,
+// so what is in use is always marked.
+func (sw *settingsWin) sceneList() []string {
+	out := []string{""}
+	for _, t := range sw.themes {
+		if t == sw.active || slices.Contains(sw.scenes, t) {
+			out = append(out, t)
 		}
 	}
-	return 0
+	return out
 }
 
-// selected is the theme name under the cursor, "" for the built-in one.
-func (sw *settingsWin) selected() string {
-	if sw.sel == 0 || sw.sel > len(sw.themes) {
+// colorList is the Colors column: the theme's own colors, then the themes
+// that only recolor; a scene shows only when it is the palette in use.
+func (sw *settingsWin) colorList() []string {
+	out := []string{""}
+	for _, t := range sw.themes {
+		if t == sw.palette || !slices.Contains(sw.scenes, t) {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// index finds a theme in a list; unknown names are its first row.
+func index(list []string, name string) int { return max(0, slices.Index(list, name)) }
+
+// selected is the theme under the Theme cursor, "" for the built-in one.
+func (sw *settingsWin) selected() string { return at(sw.sceneList(), sw.sel) }
+
+// selectedPalette is the theme under the Colors cursor, "" for the theme's
+// own colors.
+func (sw *settingsWin) selectedPalette() string { return at(sw.colorList(), sw.palSel) }
+
+func at(list []string, i int) string {
+	if i < 0 || i >= len(list) {
 		return ""
 	}
-	return sw.themes[sw.sel-1]
+	return list[i]
 }
 
 // settingsKey handles the keys the hub passes to its settings tab: every
@@ -265,6 +311,8 @@ func (m Model) settingsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		switch sw.section {
 		case sectionTheme:
 			sw.sel = max(sw.sel-1, 0)
+		case sectionColors:
+			sw.palSel = max(sw.palSel-1, 0)
 		case sectionLanguage:
 			sw.langSel = max(sw.langSel-1, 0)
 		case sectionKeys:
@@ -273,7 +321,9 @@ func (m Model) settingsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case "down", "j":
 		switch sw.section {
 		case sectionTheme:
-			sw.sel = min(sw.sel+1, len(sw.themes))
+			sw.sel = min(sw.sel+1, len(sw.sceneList())-1)
+		case sectionColors:
+			sw.palSel = min(sw.palSel+1, len(sw.colorList())-1)
 		case sectionLanguage:
 			sw.langSel = min(sw.langSel+1, len(i18n.Langs)-1)
 		case sectionKeys:
@@ -297,12 +347,6 @@ func (m Model) settingsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		if sw.section == sectionTheme {
 			sw.naming, sw.name = true, ""
 		}
-	case "c":
-		// The built-in theme sets no colors over another: on it, c goes
-		// back to the theme's own colors.
-		if sw.section == sectionTheme && !sw.busy {
-			return m, m.applyPalette(sw.selected())
-		}
 	case "enter":
 		if sw.busy {
 			return m, nil
@@ -310,6 +354,8 @@ func (m Model) settingsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		switch sw.section {
 		case sectionTheme:
 			return m, m.applyTheme(sw.selected())
+		case sectionColors:
+			return m, m.applyPalette(sw.selectedPalette())
 		case sectionLanguage:
 			return m, m.applyLanguage(i18n.Langs[sw.langSel])
 		case sectionKeys:
@@ -405,11 +451,11 @@ func (m Model) newTheme(name string) tea.Cmd {
 		if err := s.NewTheme(name); err != nil {
 			return settingsMsg{err: err}
 		}
-		themes, err := s.Themes()
+		themes, scenes, err := readThemes(s)
 		if err != nil {
 			return settingsMsg{err: err}
 		}
-		return settingsMsg{themes: themes, themesSet: true, selName: name, selSet: true,
+		return settingsMsg{themes: themes, scenes: scenes, themesSet: true, selName: name, selSet: true,
 			status: i18n.Tf("Created themes/%s; enter applies it.", name)}
 	}
 }
@@ -526,12 +572,20 @@ type settingsLine struct {
 	style screen.Style
 }
 
-// drawSettings paints the hub's settings tab: the themes, Claude's limits,
-// the keys in use and where config.toml lives.
+// settingsRow is a row of the settings tab; right is drawn from the middle
+// of the box on, for the Colors column beside the themes.
+type settingsRow struct {
+	settingsLine
+	right settingsLine
+}
+
+// drawSettings paints the hub's settings tab: the themes, their colors, the
+// language, Claude's limits, the keys in use and where config.toml lives.
 func (m Model) drawSettings(buf *screen.Buffer) {
 	fw, fh := buf.W, buf.H
 	w := min(fw-4, 90)
 	inner := max(1, w-4)
+	col := inner / 2 // where the Colors column starts
 	sw := m.setWin
 	heading := modalText()
 	heading.Bold = true
@@ -544,10 +598,10 @@ func (m Model) drawSettings(buf *screen.Buffer) {
 		return heading
 	}
 
-	var top, rest []settingsLine
-	var list []settingsLine
-	add := func(to *[]settingsLine, text string, st screen.Style) {
-		*to = append(*to, settingsLine{truncate(text, inner), st})
+	var top, rest []settingsRow
+	var list []settingsRow
+	add := func(to *[]settingsRow, text string, st screen.Style) {
+		*to = append(*to, settingsRow{settingsLine: settingsLine{truncate(text, inner), st}})
 	}
 	switch {
 	case m.settings == nil:
@@ -555,21 +609,38 @@ func (m Model) drawSettings(buf *screen.Buffer) {
 	case !sw.loaded:
 		add(&top, i18n.T("Reading…"), modalDim())
 	default:
-		add(&top, i18n.T("Theme"), focus(sectionTheme))
-		for i, name := range append([]string{""}, sw.themes...) {
-			label := themeLabel(name)
-			if name != "" && name == sw.palette {
-				label += i18n.T(" · palette")
+		// Theme picks the shapes, Colors the theme whose colors they wear,
+		// side by side over the same names. The built-in theme is the base
+		// under every theme and has no colors to lend: in Colors its row
+		// stands for the theme's own colors.
+		row := func(text string, st screen.Style, right string, rst screen.Style) settingsRow {
+			return settingsRow{settingsLine{truncate(text, col-1), st}, settingsLine{truncate(right, inner-col), rst}}
+		}
+		top = append(top, row(i18n.T("Theme"), focus(sectionTheme), i18n.T("Colors"), focus(sectionColors)))
+		scenes, colors := sw.sceneList(), sw.colorList()
+		for i := range max(len(scenes), len(colors)) {
+			var left, right string
+			st, pst := modalText(), modalText()
+			if i < len(scenes) {
+				mark := "  "
+				if scenes[i] == sw.active {
+					mark = "● "
+				}
+				left = mark + themeLabel(scenes[i])
+				st.Reverse = i == sw.sel && sw.section == sectionTheme
 			}
-			mark := "  "
-			if name == sw.active {
-				mark = "● "
+			if i < len(colors) {
+				mark, label := "  ", themeLabel(colors[i])
+				if colors[i] == sw.palette {
+					mark = "● "
+				}
+				if colors[i] == "" {
+					label = i18n.T("the theme's own colors")
+				}
+				right = mark + label
+				pst.Reverse = i == sw.palSel && sw.section == sectionColors
 			}
-			st := modalText()
-			if i == sw.sel && sw.section == sectionTheme {
-				st.Reverse = true
-			}
-			add(&list, mark+label, st)
+			list = append(list, row(left, st, right, pst))
 		}
 		if sw.naming {
 			add(&rest, i18n.T("new theme name: ")+sw.name+"█", modalBorder())
@@ -610,7 +681,7 @@ func (m Model) drawSettings(buf *screen.Buffer) {
 	}
 	// The outcome of the last action and where config.toml is always show:
 	// on a short floor the keys and blank lines above them go first.
-	var tail []settingsLine
+	var tail []settingsRow
 	if sw.configPath != "" {
 		add(&tail, "config "+leftTruncate(sw.configPath, inner-len("config ")), modalDim())
 	}
@@ -625,20 +696,24 @@ func (m Model) drawSettings(buf *screen.Buffer) {
 	}
 	rest = append(rest, tail...)
 	rows := max(1, min(len(list), maxH-2-len(top)-len(rest)))
-	first := max(0, min(sw.sel-rows/2, len(list)-rows))
+	cur := sw.sel
+	if sw.section == sectionColors {
+		cur = sw.palSel
+	}
+	first := max(0, min(cur-rows/2, len(list)-rows))
 	if len(list) > 0 {
 		list = list[first:min(len(list), first+rows)]
 	}
 	lines := append(append(top, list...), rest...)
 	h := min(maxH, len(lines)+2)
 	x, y := (fw-w)/2, (fh-h)/2
-	footer := i18n.T(" ←→ tab · ↑↓ move · tab section · enter apply · c use its colors · n new theme · esc close ")
+	footer := i18n.T(" ←→ tab · ↑↓ move · tab section · enter apply · n new theme · esc close ")
 	switch {
 	case sw.naming:
 		footer = i18n.T(" type a folder name · enter create · esc cancel ")
 	case sw.capturing:
 		footer = i18n.T(" press the new key · esc cancel ")
-	case sw.section == sectionLanguage:
+	case sw.section == sectionLanguage, sw.section == sectionColors:
 		footer = i18n.T(" ←→ tab · ↑↓ move · tab section · enter apply · esc close ")
 	case sw.section == sectionKeys:
 		footer = i18n.T(" ←→ tab · ↑↓ move · tab section · enter change · backspace default · esc close ")
@@ -649,6 +724,9 @@ func (m Model) drawSettings(buf *screen.Buffer) {
 			return
 		}
 		buf.Text(x+2, y+1+i, l.text, l.style)
+		if l.right.text != "" {
+			buf.Text(x+2+col, y+1+i, l.right.text, l.right.style)
+		}
 	}
 }
 

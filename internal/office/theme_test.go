@@ -645,3 +645,30 @@ func TestSpaceExample_LoadsAsAThemeOfItsOwn(t *testing.T) {
 		t.Error("the space scene's cat looks like the built-in one")
 	}
 }
+
+// A theme only recolored, like the presets or a copy of the built-in theme,
+// keeps the built-in shapes; the space scene draws its own.
+func TestOwnShapes_TellsAThemeThatRedrawsFromOneThatOnlyRecolors(t *testing.T) {
+	if BuiltinTheme().OwnShapes() {
+		t.Error("the built-in theme is the base its shapes are measured against")
+	}
+	for _, name := range PresetNames() {
+		if p, _ := Preset(name); p.OwnShapes() {
+			t.Errorf("preset %s only sets colors", name)
+		}
+	}
+	dir := filepath.Join(t.TempDir(), "copy")
+	if err := WriteTheme(dir, BuiltinTheme()); err != nil {
+		t.Fatal(err)
+	}
+	if c, err := LoadTheme(dir); err != nil || c.OwnShapes() {
+		t.Errorf("a written copy of the built-in theme keeps its shapes (err %v)", err)
+	}
+	space, err := LoadTheme(filepath.Join("..", "..", "examples", "themes", "space"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !space.OwnShapes() {
+		t.Error("the space scene draws its own shapes")
+	}
+}

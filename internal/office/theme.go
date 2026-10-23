@@ -9,6 +9,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"sort"
 	"strconv"
@@ -65,6 +66,14 @@ type Theme struct {
 // sets reports whether t's theme.toml gives the color setting key, as
 // "section.key"; colors it leaves out came from the built-in theme.
 func (t *Theme) sets(key string) bool { return t.set[key] }
+
+// OwnShapes reports whether t draws people, furniture, room or pet in shapes
+// other than the built-in theme's; a theme that only recolors does not.
+func (t Theme) OwnShapes() bool {
+	b := BuiltinTheme()
+	return !reflect.DeepEqual(t.poses, b.poses) || !reflect.DeepEqual(t.pieces, b.pieces) ||
+		!reflect.DeepEqual(t.moods, b.moods)
+}
 
 // WithPalette is scene in palette's colors: every color palette's theme.toml
 // gives replaces the scene's, its [custom] ones included, and the scene

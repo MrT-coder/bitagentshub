@@ -16,6 +16,7 @@ import (
 // scripted values and errors.
 type fakeSettings struct {
 	themes   []string
+	scenes   []string // nil: every theme
 	active   string
 	limits   bool
 	applyErr error
@@ -27,6 +28,14 @@ type fakeSettings struct {
 	langErr  error
 	petName  string
 	palette  string
+}
+
+// Scenes are scenes when set, otherwise every theme has shapes of its own.
+func (f *fakeSettings) Scenes() ([]string, error) {
+	if f.scenes != nil {
+		return slices.Clone(f.scenes), nil
+	}
+	return slices.Clone(f.themes), nil
 }
 
 func (f *fakeSettings) ActivePalette() string { return f.palette }
@@ -297,7 +306,7 @@ func TestSettingsLimitsToggleByCurrentState(t *testing.T) {
 	if !strings.Contains(view(m), "Claude limits: off") || !strings.Contains(view(m), "backed up") {
 		t.Fatalf("settings should say limits are off and that settings.json is backed up:\n%s", view(m))
 	}
-	m = press(press(m, key("tab")), key("tab"))
+	m = press(press(press(m, key("tab")), key("tab")), key("tab"))
 	m = press(m, key("enter"))
 	if !slices.Equal(f.calls, []string{"limits on"}) || !strings.Contains(view(m), "Claude limits: on") {
 		t.Fatalf("enter should turn limits on, calls = %q:\n%s", f.calls, view(m))
@@ -373,7 +382,10 @@ func keysSection(t *testing.T, f *fakeSettings) Model {
 	t.Helper()
 	m := settingsOffice(t, f)
 	m = press(m, key("s"))
-	return press(press(press(m, key("tab")), key("tab")), key("tab"))
+	for range 4 {
+		m = press(m, key("tab"))
+	}
+	return m
 }
 
 func TestSettingsListEveryKeyBinding(t *testing.T) {
@@ -474,27 +486,110 @@ func TestSettingsRefuseADefaultAnotherActionNowUses(t *testing.T) {
 	}
 }
 
-func TestSettingsCWearsTheSelectedThemesColors(t *testing.T) {
-	f := &fakeSettings{themes: []string{"aliens", "mine"}, active: "mine", palette: "mine"}
+// columns is the text of the Theme column and of the Colors column beside
+// it, which starts under the Colors heading.
+func columns(t *testing.T, v string) (theme, colors string) {
+	t.Helper()
+	lines := strings.Split(v, "\n")
+	col := -1
+	for _, l := range lines {
+		if strings.Contains(l, "Theme") && strings.Contains(l, "Colors") {
+			col = len([]rune(l[:strings.Index(l, "Colors")]))
+		}
+	}
+	if col < 0 {
+		t.Fatalf("no Theme and Colors headings side by side:\n%s", v)
+	}
+	for _, l := range lines {
+		if r := []rune(l); len(r) > col {
+			theme += string(r[:col]) + "\n"
+			colors += string(r[col:]) + "\n"
+		}
+	}
+	return theme, colors
+}
+
+// marked says whether name is marked in the Theme column and in the Colors
+// column.
+func marked(t *testing.T, v, name string) (theme, colors bool) {
+	t.Helper()
+	left, right := columns(t, v)
+	return strings.Contains(left, "● "+name), strings.Contains(right, "● "+name)
+}
+
+func TestSettingsColorsSectionDressesTheThemeInAnotherThemesColors(t *testing.T) {
+	f := &fakeSettings{themes: []string{"aliens", "mine"}, scenes: []string{"mine"}, active: "mine", palette: "mine"}
 	m := settingsOffice(t, f)
 	m = press(m, key("s"))
-	if v := view(m); !strings.Contains(v, "mine · palette") || strings.Contains(v, "aliens · palette") {
-		t.Fatalf("the palette in use should be marked:\n%s", v)
+	if v := view(m); !strings.Contains(v, "the theme's own colors") {
+		t.Fatalf("Colors should offer the theme's own colors:\n%s", v)
 	}
+	if theme, colors := marked(t, view(m), "mine"); !theme || !colors {
+		t.Fatalf("mine should be marked as theme and as colors:\n%s", view(m))
+	}
+	m = press(m, key("tab"))
 	m = press(m, key("up")) // aliens
-	m = press(m, key("c"))
+	m = press(m, key("enter"))
 	if !slices.Equal(f.calls, []string{"palette aliens"}) {
 		t.Fatalf("calls = %q, want palette aliens", f.calls)
 	}
-	if v := view(m); !strings.Contains(v, "aliens · palette") || strings.Contains(v, "mine · palette") || !strings.Contains(v, "● mine") {
-		t.Errorf("aliens should be the palette and mine still the theme:\n%s", v)
+	if theme, colors := marked(t, view(m), "aliens"); theme || !colors {
+		t.Errorf("aliens should be the colors in use, not the theme:\n%s", view(m))
 	}
-	m = press(m, key("up")) // the built-in theme: the theme's own colors
-	m = press(m, key("c"))
+	if theme, colors := marked(t, view(m), "mine"); !theme || colors {
+		t.Errorf("mine should still be the theme and no longer the colors:\n%s", view(m))
+	}
+	m = press(m, key("up")) // the theme's own colors
+	m = press(m, key("enter"))
 	if !slices.Equal(f.calls, []string{"palette aliens", "palette "}) {
-		t.Errorf("c on the built-in theme should drop the palette, calls = %q", f.calls)
+		t.Errorf("the theme's own colors should drop the palette, calls = %q", f.calls)
 	}
-	if v := view(m); strings.Contains(v, "· palette") {
-		t.Errorf("no palette should be marked:\n%s", v)
+	if _, colors := marked(t, view(m), "the theme's own colors"); !colors {
+		t.Errorf("the theme's own colors should be marked:\n%s", view(m))
+	}
+}
+
+func TestSettingsThemeListsScenesAndColorsTheRestEachOnce(t *testing.T) {
+	f := &fakeSettings{themes: []string{"gentle-ai", "night", "prueba", "space"}, scenes: []string{"space"},
+		active: "space", palette: "gentle-ai"}
+	m := settingsOffice(t, f)
+	m = press(m, key("s"))
+	v := view(m)
+	theme, colors := columns(t, v)
+	for _, name := range []string{"gentle-ai", "night", "prueba"} {
+		if strings.Contains(theme, name) {
+			t.Errorf("%s has no shapes of its own and is not the theme in use; Theme lists it:\n%s", name, v)
+		}
+		if !strings.Contains(colors, name) {
+			t.Errorf("Colors should list %s:\n%s", name, v)
+		}
+	}
+	if !strings.Contains(theme, "space") || strings.Contains(colors, "space") {
+		t.Errorf("space draws its own shapes: only Theme lists it:\n%s", v)
+	}
+	if th, _ := marked(t, v, "space"); !th {
+		t.Errorf("space should be the theme in use:\n%s", v)
+	}
+	if _, colors := marked(t, v, "gentle-ai"); !colors {
+		t.Errorf("gentle-ai should still be the colors in use:\n%s", v)
+	}
+	m = press(m, key("up")) // the built-in theme, right above space
+	m = press(m, key("enter"))
+	if !slices.Equal(f.calls, []string{"apply "}) {
+		t.Errorf("up from space should reach the built-in theme, calls = %q", f.calls)
+	}
+}
+
+// A new theme copied from the built-in shapes only lends colors until its
+// files are redrawn, so it is picked under Colors.
+func TestSettingsNewThemeWithTheBuiltinShapesIsPickedUnderColors(t *testing.T) {
+	f := &fakeSettings{themes: []string{"night"}, scenes: []string{}}
+	m := settingsOffice(t, f)
+	m = press(m, key("s"))
+	m = press(m, key("n"))
+	m = typeText(m, "mine")
+	m = press(press(m, key("enter")), key("enter"))
+	if !slices.Equal(f.calls, []string{"new mine", "palette mine"}) {
+		t.Errorf("calls = %q, want the new theme applied as colors", f.calls)
 	}
 }

@@ -53,6 +53,22 @@ func (s *officeSettings) Themes() ([]string, error) {
 	return append(office.PresetNames(), names...), nil
 }
 
+// Scenes are the themes whose shapes are their own. One that does not load
+// is counted in, so choosing it shows why.
+func (s *officeSettings) Scenes() ([]string, error) {
+	names, err := s.Themes()
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, name := range names {
+		if t, err := loadTheme(s.themesDir, name); err != nil || t.OwnShapes() {
+			out = append(out, name)
+		}
+	}
+	return out, nil
+}
+
 func (s *officeSettings) ActiveTheme() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
