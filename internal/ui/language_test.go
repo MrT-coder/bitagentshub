@@ -52,7 +52,7 @@ func TestTheLanguageSectionSwitchesTheOfficeAtOnce(t *testing.T) {
 	if v := view(m); !strings.Contains(v, "Language") || !strings.Contains(v, "● English") || !strings.Contains(v, "  Español") {
 		t.Fatalf("settings should list the languages, the active one marked:\n%s", v)
 	}
-	m = press(m, key("tab"))
+	m = press(press(m, key("tab")), key("tab"))
 	m = press(m, key("down"))
 	m = press(m, key("enter"))
 	if !slices.Equal(f.calls, []string{"language es"}) {

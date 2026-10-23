@@ -47,8 +47,11 @@ folder, except `default`: the built-in theme is the base under every theme
 and lists no colors of its own. Without `palette`, a theme wears its own
 colors.
 
-In the hub's settings tab, `c` on a theme makes it the palette and saves
-it; `c` on `default (built-in)` goes back to the theme's own colors.
+In the hub's settings tab, **Theme** lists `default` and the themes that
+draw their own shapes; the **Colors** column beside it lists the themes that
+only recolor and picks the palette (a scene's colors can still be a palette
+in `config.toml`): `enter` on a theme makes it the palette and saves it; `the theme's
+own colors` goes back to the theme's own.
 
 ## Start from the built-in theme
 

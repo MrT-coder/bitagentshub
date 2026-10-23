@@ -274,3 +274,32 @@ func TestApplyingAPaletteDressesTheActiveThemeAndSavesIt(t *testing.T) {
 		t.Errorf("config.toml still has the palette: %s", b)
 	}
 }
+
+func TestScenesAreTheThemesThatDrawTheirOwnShapes(t *testing.T) {
+	s, _ := testSettings(t, "")
+	if got, err := s.Scenes(); err != nil || len(got) != 0 {
+		t.Errorf("no themes folder: %v %v; the office's own themes only recolor", got, err)
+	}
+	if _, err := writeThemeAs(s.themesDir, "copy", office.BuiltinTheme()); err != nil {
+		t.Fatal(err)
+	}
+	space, err := office.LoadTheme(filepath.Join("examples", "themes", "space"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := writeThemeAs(s.themesDir, "space", space); err != nil {
+		t.Fatal(err)
+	}
+	// A theme that does not load cannot be told apart; Theme lists it so
+	// applying it shows why.
+	if err := os.MkdirAll(filepath.Join(s.themesDir, "broken"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(s.themesDir, "broken", "theme.toml"), []byte("[palette\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Scenes()
+	if err != nil || !reflect.DeepEqual(got, []string{"broken", "space"}) {
+		t.Errorf("scenes = %v, %v; want broken and space", got, err)
+	}
+}
