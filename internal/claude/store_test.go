@@ -218,6 +218,37 @@ func TestStore_GroupsSessionsByParentFolderOfTheirWorkingDirectory(t *testing.T)
 	}
 }
 
+// An agent that cd's into a folder of its project stays in its project's
+// room: its project is the shallowest folder its lines are in.
+func TestStore_KeepsTheProjectWhenTheAgentMovesIntoOneOfItsFolders(t *testing.T) {
+	root := t.TempDir()
+	now := time.Date(2026, 10, 20, 15, 0, 0, 0, time.UTC)
+	line := func(id, cwd string) string {
+		return fmt.Sprintf(`{"type":"assistant","timestamp":"2026-10-20T14:59:00Z","cwd":%q,"message":{"id":%q,"stop_reason":"end_turn","usage":{"output_tokens":1}}}`+"\n", cwd, id)
+	}
+	web := `C:\workspace\JBMLLNUBE\plataforma-web`
+	writeFile(t, filepath.Join(root, "a", "into.jsonl"),
+		line("m1", web)+line("m2", web+`\src\main`)+line("m3", "/c/workspace/JBMLLNUBE/plataforma-web/sessions/infrastructure"), now)
+	// Reading only the end of a long transcript can start in a subfolder.
+	writeFile(t, filepath.Join(root, "a", "back.jsonl"), line("m4", web+`\src\main`)+line("m5", web), now)
+	// A session that moves to another project follows it, as before.
+	writeFile(t, filepath.Join(root, "a", "moved.jsonl"), line("m6", web)+line("m7", `C:\workspace\JBMLLNUBE\bitagentshub`), now)
+
+	got := map[string]Agent{}
+	for _, a := range NewStore(root, Options{}).Poll(now).Agents {
+		got[a.ID] = a
+	}
+	for id, want := range map[string][3]string{
+		"into":  {web, "plataforma-web", "JBMLLNUBE"},
+		"back":  {web, "plataforma-web", "JBMLLNUBE"},
+		"moved": {`C:\workspace\JBMLLNUBE\bitagentshub`, "bitagentshub", "JBMLLNUBE"},
+	} {
+		if a := got[id]; a.Cwd != want[0] || a.Project != want[1] || a.Group != want[2] {
+			t.Errorf("%s: cwd, project, group = %q, %q, %q; want %q", id, a.Cwd, a.Project, a.Group, want)
+		}
+	}
+}
+
 func TestStore_HidesSessionsOutsideActiveWindowButKeepsTheirTokens(t *testing.T) {
 	root := t.TempDir()
 	now := time.Date(2026, 10, 20, 15, 0, 0, 0, time.UTC)

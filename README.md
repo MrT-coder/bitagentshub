@@ -433,7 +433,9 @@ with pixel-agents.
   and the pet's corner (see [The pet and its hub](#the-pet-and-its-hub)).
 - **Areas**: each workspace folder gets a carpet with its workstations.
   Sessions under `C:\work\acme-company\` share the `acme-company`
-  carpet, and so on; sessions with no known directory go to `other`. The
+  carpet, and so on; sessions with no known directory go to `other`. An
+  agent that moves into a folder of its project (`cd src/main`) stays at its
+  project's desk and carpet. The
   label shows the area's spend today.
 - **Workstations**: chair, desk, monitor and mug. Under each desk: the
   project, today's tokens and status.

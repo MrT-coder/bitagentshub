@@ -409,7 +409,9 @@ func (s *Store) apply(sess *session, f *file, line []byte) {
 	if json.Unmarshal(line, &raw) != nil {
 		return
 	}
-	if raw.Cwd != "" && !f.subagent {
+	// An agent that cd's into one of its project's folders is still in its
+	// project, so a line in a folder under the session's cwd keeps it.
+	if raw.Cwd != "" && !f.subagent && !within(raw.Cwd, sess.cwd) {
 		sess.cwd = raw.Cwd
 		sess.project = baseName(raw.Cwd)
 		if g := baseName(parentDir(raw.Cwd)); g != "" {
@@ -554,6 +556,22 @@ func baseName(p string) string {
 		return p[i+1:]
 	}
 	return p
+}
+
+// within reports whether dir is a folder under parent (not parent itself),
+// whatever the case and slashes, with /c/... read as C:\....
+func within(dir, parent string) bool {
+	if parent == "" {
+		return false
+	}
+	norm := func(p string) string {
+		p = strings.ToLower(strings.TrimRight(strings.ReplaceAll(p, `\`, "/"), "/"))
+		if len(p) >= 3 && p[0] == '/' && p[2] == '/' {
+			p = p[1:2] + ":" + p[2:]
+		}
+		return p
+	}
+	return strings.HasPrefix(norm(dir), norm(parent)+"/")
 }
 
 func parentDir(p string) string {
