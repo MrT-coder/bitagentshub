@@ -46,6 +46,7 @@ type Theme struct {
 
 	poses  [poseCount][]frame
 	pieces [pieceCount]piece
+	moods  [moodCount][]catFrame // the pet's frames
 	// set holds the color settings its theme.toml gives, as "section.key";
 	// the built-in theme sets none, since it is the base under every theme.
 	set map[string]bool
@@ -156,7 +157,7 @@ var poseSpecs = [poseCount]struct {
 	poseLounging:  {"lounging", 1, false},
 }
 
-const spriteLetters = "HSEBbPFWw."
+const spriteLetters = "HSEBbPFWw"
 
 // active is the theme everything is drawn with. It is read on every frame,
 // so it is a resolved value, never looked up by name; it is an atomic
@@ -251,6 +252,7 @@ func BuiltinTheme() Theme {
 
 		poses:  builtinPoses(),
 		pieces: builtinPieces(),
+		moods:  builtinPet(),
 	}
 }
 
@@ -341,8 +343,8 @@ func (t *Theme) colorFields() []colorField {
 	}
 }
 
-// LoadTheme reads the theme in dir: theme.toml, any characters/<pose>.txt
-// and any furniture/<piece>.txt.
+// LoadTheme reads the theme in dir: theme.toml, any characters/<pose>.txt,
+// any furniture/<piece>.txt and any pet/<mood or piece>.txt.
 // Whatever the theme leaves out comes from the built-in theme. Anything it
 // cannot use is an error naming the file, the field or pose, and the line.
 func LoadTheme(dir string) (Theme, error) {
@@ -362,6 +364,9 @@ func loadTheme(fsys fs.FS, dir, name string) (Theme, error) {
 		return Theme{}, err
 	}
 	if err := t.readPieces(fsys, filepath.Join(dir, "furniture")); err != nil {
+		return Theme{}, err
+	}
+	if err := t.readPet(fsys, filepath.Join(dir, "pet")); err != nil {
 		return Theme{}, err
 	}
 	return t, nil
@@ -542,18 +547,31 @@ func parseColor(s string) (screen.RGB, error) {
 func formatColor(c screen.RGB) string { return fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B) }
 
 func (t *Theme) readPoses(fsys fs.FS, dir string) error {
-	entries, err := fs.ReadDir(fsys, "characters")
+	names := make([]string, poseCount)
+	for p, spec := range poseSpecs {
+		names[p] = spec.name
+	}
+	return readFiles(fsys, "characters", dir, "pose", "pose", names, func(i int, path string, src []byte) error {
+		frames, err := parseFrames(path, src, poseID(i))
+		if err != nil {
+			return err
+		}
+		t.poses[i] = frames
+		return nil
+	})
+}
+
+// readFiles reads each folder/<name>.txt of fsys, where name is one of
+// names, and hands it to read with the index of its name. dir is the
+// folder's path in errors; a file named otherwise is an unknown kind, and
+// the error lists the files a group may hold.
+func readFiles(fsys fs.FS, folder, dir, kind, group string, names []string, read func(i int, path string, src []byte) error) error {
+	entries, err := fs.ReadDir(fsys, folder)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
 	if err != nil {
 		return fmt.Errorf("%s: %w", dir, err)
-	}
-	byName := map[string]poseID{}
-	names := make([]string, poseCount)
-	for p, spec := range poseSpecs {
-		byName[spec.name] = poseID(p)
-		names[p] = spec.name
 	}
 	for _, e := range entries {
 		name, ok := strings.CutSuffix(e.Name(), ".txt")
@@ -561,19 +579,17 @@ func (t *Theme) readPoses(fsys fs.FS, dir string) error {
 			continue
 		}
 		path := filepath.Join(dir, e.Name())
-		p, known := byName[name]
-		if !known {
-			return fmt.Errorf("%s: unknown pose; pose files are %s", path, strings.Join(names, ", "))
+		i := slices.Index(names, name)
+		if i < 0 {
+			return fmt.Errorf("%s: unknown %s; %s files are %s", path, kind, group, strings.Join(names, ", "))
 		}
-		src, err := fs.ReadFile(fsys, "characters/"+e.Name())
+		src, err := fs.ReadFile(fsys, folder+"/"+e.Name())
 		if err != nil {
 			return fmt.Errorf("%s: %w", path, err)
 		}
-		frames, err := parseFrames(path, src, p)
-		if err != nil {
+		if err := read(i, path, src); err != nil {
 			return err
 		}
-		t.poses[p] = frames
 	}
 	return nil
 }
@@ -582,28 +598,57 @@ func (t *Theme) readPoses(fsys fs.FS, dir string) error {
 // spriteW letters, separated by one blank line.
 func parseFrames(path string, src []byte, p poseID) ([]frame, error) {
 	spec := poseSpecs[p]
+	g := grids{what: "pose " + spec.name, w: spriteW, h: spriteH, frames: spec.frames, letters: spriteLetters}
+	if spec.seated {
+		g.rule = func(y int, row string) string {
+			if y >= spriteH-2 && row != strings.Repeat(".", spriteW) {
+				return fmt.Sprintf("rows %d and %d must be all '.': the desk covers them", spriteH-1, spriteH)
+			}
+			return ""
+		}
+	}
+	rows, err := g.parse(path, src)
+	if err != nil {
+		return nil, err
+	}
+	frames := make([]frame, len(rows))
+	for i, f := range rows {
+		copy(frames[i][:], f)
+	}
+	return frames, nil
+}
+
+// grids is what a file of frames holds: frames of h rows of w letters,
+// separated by one blank line. rule, when set, says what is wrong with row
+// y of a frame, or "".
+type grids struct {
+	what         string // what the file is, named in its errors
+	w, h, frames int
+	letters      string // besides '.'
+	rule         func(y int, row string) string
+}
+
+func (g grids) parse(path string, src []byte) ([][]string, error) {
 	fail := func(line int, format string, args ...any) error {
 		at := path
 		if line > 0 {
 			at += ":" + strconv.Itoa(line)
 		}
-		return fmt.Errorf("%s: pose %s: %s", at, spec.name, fmt.Sprintf(format, args...))
+		return fmt.Errorf("%s: %s: %s", at, g.what, fmt.Sprintf(format, args...))
 	}
 	lines := strings.Split(strings.ReplaceAll(string(src), "\r\n", "\n"), "\n")
 	for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
 		lines = lines[:len(lines)-1]
 	}
 
-	var frames []frame
+	var frames [][]string
 	var rows []string
 	start := 1 // line of the first row of the frame being read
 	flush := func() error {
-		if len(rows) != spriteH {
-			return fail(start, "frame %d has %d rows, want %d", len(frames)+1, len(rows), spriteH)
+		if len(rows) != g.h {
+			return fail(start, "frame %d has %d rows, want %d", len(frames)+1, len(rows), g.h)
 		}
-		var f frame
-		copy(f[:], rows)
-		frames, rows = append(frames, f), nil
+		frames, rows = append(frames, rows), nil
 		return nil
 	}
 	for i, raw := range lines {
@@ -618,16 +663,18 @@ func parseFrames(path string, src []byte, p poseID) ([]frame, error) {
 			start = n + 1
 			continue
 		}
-		if len(row) != spriteW {
-			return nil, fail(n, "row is %d wide, want %d", len(row), spriteW)
+		if len(row) != g.w {
+			return nil, fail(n, "row is %d wide, want %d", len(row), g.w)
 		}
 		for col := 0; col < len(row); col++ {
-			if !strings.ContainsRune(spriteLetters, rune(row[col])) {
-				return nil, fail(n, "unknown letter %q in column %d; use H S E B b P F W w or .", row[col], col+1)
+			if row[col] != '.' && !strings.ContainsRune(g.letters, rune(row[col])) {
+				return nil, fail(n, "unknown letter %q in column %d; use %s or .", row[col], col+1, spaced(g.letters))
 			}
 		}
-		if spec.seated && len(rows) >= spriteH-2 && row != strings.Repeat(".", spriteW) {
-			return nil, fail(n, "rows %d and %d must be all '.': the desk covers them", spriteH-1, spriteH)
+		if g.rule != nil {
+			if msg := g.rule(len(rows), row); msg != "" {
+				return nil, fail(n, "%s", msg)
+			}
 		}
 		rows = append(rows, row)
 	}
@@ -636,18 +683,23 @@ func parseFrames(path string, src []byte, p poseID) ([]frame, error) {
 			return nil, err
 		}
 	}
-	if len(frames) != spec.frames {
+	if len(frames) != g.frames {
 		plural := "s"
 		if len(frames) == 1 {
 			plural = ""
 		}
-		return nil, fail(0, "has %d frame%s, want %d", len(frames), plural, spec.frames)
+		return nil, fail(0, "has %d frame%s, want %d", len(frames), plural, g.frames)
 	}
 	return frames, nil
 }
 
+// spaced is letters with a space between each, the way errors list them.
+func spaced(letters string) string {
+	return strings.Join(strings.Split(letters, ""), " ")
+}
+
 // WriteTheme writes t into dir in the format LoadTheme reads: theme.toml
-// and one file per pose and per piece of furniture. It refuses a folder that already has files, so it
+// and one file per pose, per piece of furniture and per pet file. It refuses a folder that already has files, so it
 // never overwrites someone's theme.
 func WriteTheme(dir string, t Theme) error {
 	entries, err := os.ReadDir(dir)
@@ -657,7 +709,7 @@ func WriteTheme(dir string, t Theme) error {
 	if len(entries) > 0 {
 		return fmt.Errorf("%s already exists and is not empty", dir)
 	}
-	for _, sub := range []string{"characters", "furniture"} {
+	for _, sub := range []string{"characters", "furniture", "pet"} {
 		if err := os.MkdirAll(filepath.Join(dir, sub), 0o755); err != nil {
 			return err
 		}
@@ -666,7 +718,7 @@ func WriteTheme(dir string, t Theme) error {
 	var b strings.Builder
 	b.WriteString("# A bah theme. Colors are #rrggbb; anything left out comes\n")
 	b.WriteString("# from the built-in theme. Character poses live in characters/,\n")
-	b.WriteString("# furniture shapes in furniture/.\n")
+	b.WriteString("# furniture shapes in furniture/, the pet's in pet/.\n")
 	fmt.Fprintf(&b, "name = %s\nauthor = %s\n", tomlString(t.Name), tomlString(t.Author))
 	section := ""
 	for _, f := range t.colorFields() {
@@ -706,7 +758,10 @@ func WriteTheme(dir string, t Theme) error {
 			return err
 		}
 	}
-	return writePieces(filepath.Join(dir, "furniture"), t)
+	if err := writePieces(dir, t); err != nil {
+		return err
+	}
+	return writePet(filepath.Join(dir, "pet"), t)
 }
 
 // tomlString quotes s as a TOML basic string.

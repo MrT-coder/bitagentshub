@@ -1,14 +1,16 @@
 # Themes
 
-A theme changes the office's colors, how its people and its furniture look,
-and the colors of the windows and terminals. It is a folder
+A theme changes the office's colors, how its people, its furniture and its
+pet look, and the colors of the windows and terminals. It is a folder
 of plain text files on your machine: nothing is downloaded, and you can share
 a theme by copying its folder.
 
 It covers the palettes, the colors of the room, the furniture and the pet,
-the characters' poses, the shapes of the furniture, the windows (terminals,
-board, settings) and the terminals' 16 ANSI colors. The shapes of the pet are
-not themable yet.
+the characters' poses, the shapes of the furniture and of the pet's corner,
+the windows (terminals, board, settings) and the terminals' 16 ANSI colors.
+What tells you something rather than decorates the office stays the same in
+every theme: the status colors and the speech bubbles over agents and the
+pet.
 
 ## Themes that come with the office
 
@@ -58,8 +60,8 @@ From a terminal:
 bah theme init my-theme
 ```
 
-This writes the built-in theme, every color, every pose and every piece of
-furniture, to the themes
+This writes the built-in theme, every color, every pose, every piece of
+furniture and every pet file, to the themes
 folder next to your `config.toml`:
 
 | OS | Folder |
@@ -100,14 +102,18 @@ my-theme/
   furniture/
     desk.txt       chair.txt    window.txt   painting.txt clock.txt
     bookshelf.txt  coffee.txt   cooler.txt   sofa.txt     plant.txt
+  pet/
+    sleeping.txt   busy.txt     tired.txt    exhausted.txt
+    hungry.txt     alert.txt    eating.txt
+    bed.txt        bowl.txt
 ```
 
-`theme.toml` is required; everything in it and every pose and furniture file
-is optional. Whatever a theme leaves out, a color, a whole pose or a piece of
-furniture, comes from the built-in theme, so a theme can be a `theme.toml`
-with one color. Only the files listed above may sit in `characters/` and
-`furniture/` (other `.txt` files are an error; files with other extensions
-are ignored).
+`theme.toml` is required; everything in it and every pose, furniture and pet
+file is optional. Whatever a theme leaves out, a color, a whole pose, a piece
+of furniture or a pet file, comes from the built-in theme, so a theme can be
+a `theme.toml` with one color. Only the files listed above may sit in
+`characters/`, `furniture/` and `pet/` (other `.txt` files are an error;
+files with other extensions are ignored).
 
 ## theme.toml
 
@@ -383,3 +389,63 @@ How to draw so furniture looks right (not checked):
   a piece that stands on the floor, which stays the same whatever you draw.
 - One frame per piece: only the coffee light, the monitor's screen and the
   clock's hand move.
+
+## Pet
+
+The pet lives in the bottom-left corner of the floor: a bed, the pet on it
+and its bowl beside it. Its mood picks the file it is drawn from; each mood
+file holds the frames that mood plays. A frame is a grid of 12 columns and 8
+rows, frames are separated by one blank line, and each character is one
+pixel in a `[pet]` color:
+
+| Letter | Pixel |
+|---|---|
+| `K` | `fur` |
+| `k` | `shade` (stripes, closed eyes) |
+| `E` | `eye` |
+| `N` | `nose` |
+| `W` | `muzzle` |
+| `.` | transparent |
+
+A three-eyed cat is a cat with three `E`.
+
+| File | Frames | How they play |
+|---|---|---|
+| `sleeping` | 2 | nobody works; they alternate every 8 ticks (breathing) |
+| `busy` | 3 | agents work; frames 1 and 2 alternate every 4 ticks (a tail wag), and frame 3 shows instead of frame 1 now and then (a blink) |
+| `tired` | 2 | a limit is at 70% or more; they alternate every 16 ticks |
+| `exhausted` | 2 | a limit is at 90% or more; they alternate every 12 ticks |
+| `hungry` | 2 | no task was checked off today; they alternate every 6 ticks (meowing) |
+| `alert` | 1 | an agent waits on a permission; it holds still while its `!` blinks |
+| `eating` | 2 | a task was just checked off; they alternate every 3 ticks (chewing) |
+
+A tick is one step of the office's animation. The bubbles over the pet (`z`, `~`, `x`, `!`, the fish) are not part of
+the theme.
+
+The rest of the corner is two pieces, drawn like furniture:
+
+**`bed.txt`**: 14×4, at the bottom of the corner, under the pet.
+
+| Letter | Pixel |
+|---|---|
+| `R` | `bed_rim` |
+| `P` | `bed_pad` |
+
+**`bowl.txt`**: 4×3, to the right of the bed.
+
+| Letter | Pixel |
+|---|---|
+| `B` | `bowl` |
+| `F` | `food`, drawn only while the pet is not hungry |
+
+Rules the office checks when it starts:
+
+- Every frame is 12 columns by 8 rows and uses only the letters above and
+  `.`; each mood file has exactly its number of frames.
+- The bed and the bowl have exactly their size and use only their own
+  letters and `.`.
+
+A pet file that breaks a rule, or a `.txt` file in `pet/` that is not one
+of the files above, stops the office at start with an error naming the
+file, the line and what it needs: the size, the letters or the number of
+frames.

@@ -34,8 +34,8 @@ func TestLoadTheme_TakesEveryAbsentPieceFromTheBuiltinTheme(t *testing.T) {
 		t.Run(spec.name, func(t *testing.T) {
 			rows := solidPiece(p, spec.letters[0])
 			dir := writeFiles(t, map[string]string{
-				"theme.toml":                      "name = \"mine\"\n",
-				"furniture/" + spec.name + ".txt": pieceText(rows),
+				"theme.toml":                        "name = \"mine\"\n",
+				spec.dir + "/" + spec.name + ".txt": pieceText(rows),
 			})
 			got, err := LoadTheme(dir)
 			if err != nil {
@@ -175,8 +175,8 @@ func TestWriteTheme_WritesEveryPieceLoadThemeReadsBack(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, spec := range pieceSpecs {
-		if _, err := os.Stat(filepath.Join(dir, "furniture", spec.name+".txt")); err != nil {
-			t.Errorf("furniture file: %v", err)
+		if _, err := os.Stat(filepath.Join(dir, spec.dir, spec.name+".txt")); err != nil {
+			t.Errorf("%s file: %v", spec.dir, err)
 		}
 	}
 	got, err := LoadTheme(dir)

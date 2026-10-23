@@ -1,7 +1,6 @@
 package office
 
 import (
-	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -31,26 +30,30 @@ const (
 	pieceCooler
 	pieceSofa
 	piecePlant
+	pieceBed // the pet's corner
+	pieceBowl
 	pieceCount
 )
 
-// pieceSpecs names each furniture file, its size and its letters. The
-// floor items are named like their Item.Kind.
+// pieceSpecs names each piece's folder and file, its size and its letters.
+// The floor items are named like their Item.Kind.
 var pieceSpecs = [pieceCount]struct {
-	name    string
-	w, h    int
-	letters string
+	dir, name string
+	w, h      int
+	letters   string
 }{
-	pieceDesk:      {"desk", stationW, 13, "TFLMUC#"},
-	pieceChair:     {"chair", 10, 6, "BE"},
-	pieceWindow:    {"window", 16, 8, "FGS"},
-	piecePainting:  {"painting", 8, 6, "FCH"},
-	pieceClock:     {"clock", 5, 5, "FC"},
-	pieceBookshelf: {"bookshelf", 14, 18, "Ss123456789"},
-	pieceCoffee:    {"coffee", 8, 14, "MPTBUL"},
-	pieceCooler:    {"cooler", 6, 12, "BCT"},
-	pieceSofa:      {"sofa", 20, 10, "SsaL"},
-	piecePlant:     {"plant", 6, 10, "LPB"},
+	pieceDesk:      {"furniture", "desk", stationW, 13, "TFLMUC#"},
+	pieceChair:     {"furniture", "chair", 10, 6, "BE"},
+	pieceWindow:    {"furniture", "window", 16, 8, "FGS"},
+	piecePainting:  {"furniture", "painting", 8, 6, "FCH"},
+	pieceClock:     {"furniture", "clock", 5, 5, "FC"},
+	pieceBookshelf: {"furniture", "bookshelf", 14, 18, "Ss123456789"},
+	pieceCoffee:    {"furniture", "coffee", 8, 14, "MPTBUL"},
+	pieceCooler:    {"furniture", "cooler", 6, 12, "BCT"},
+	pieceSofa:      {"furniture", "sofa", 20, 10, "SsaL"},
+	piecePlant:     {"furniture", "plant", 6, 10, "LPB"},
+	pieceBed:       {"pet", "bed", 14, 4, "RP"},
+	pieceBowl:      {"pet", "bowl", 4, 3, "BF"},
 }
 
 // The desk starts at the monitor's row of its station. Its '#' cells are
@@ -185,6 +188,17 @@ func builtinPieces() [pieceCount]piece {
 			".PPPP.",
 			"..BB..",
 		},
+		pieceBed: {
+			".RRRRRRRRRRRR.",
+			"PPPPPPPPPPPPPP",
+			"PPPPPPPPPPPPPP",
+			".RRRRRRRRRRRR.",
+		},
+		pieceBowl: {
+			".FF.",
+			"BBBB",
+			".BB.",
+		},
 	}
 }
 
@@ -201,7 +215,8 @@ func pieceNamed(name string) (pieceID, bool) {
 
 // drawPiece draws t's piece p with its top-left pixel at (x, y). n is what
 // changes from one copy or frame to the next: which painting it is, or the
-// tick the coffee machine's light blinks by.
+// tick the coffee machine's light blinks by, or 1 when the pet's bowl is
+// full.
 func (t *Theme) drawPiece(buf *screen.Buffer, p pieceID, x, y, n int) {
 	for dy, row := range t.pieces[p] {
 		for dx := 0; dx < len(row); dx++ {
@@ -245,6 +260,13 @@ func (t *Theme) ink(p pieceID, ch byte, n int) (screen.RGB, bool) {
 		c = pick(ch, "SsaL", f.Sofa, scale(f.Sofa, 0.85), scale(f.Sofa, 0.7), f.SofaLeg)
 	case piecePlant:
 		c = pick(ch, "LPB", f.Leaf, f.Pot, f.PotBase)
+	case pieceBed:
+		c = pick(ch, "RP", t.Pet.BedRim, t.Pet.BedPad)
+	case pieceBowl:
+		if ch == 'F' && n == 0 {
+			return c, false
+		}
+		c = pick(ch, "BF", t.Pet.Bowl, t.Pet.Food)
 	}
 	if ch == '.' || ch == '#' {
 		return c, false
@@ -261,41 +283,24 @@ func pick(ch byte, letters string, colors ...screen.RGB) screen.RGB {
 }
 
 func (t *Theme) readPieces(fsys fs.FS, dir string) error {
-	entries, err := fs.ReadDir(fsys, "furniture")
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("%s: %w", dir, err)
-	}
-	names := make([]string, pieceCount)
+	var ids []pieceID
+	var names []string
 	for p, spec := range pieceSpecs {
-		names[p] = spec.name
+		if spec.dir == "furniture" {
+			ids, names = append(ids, pieceID(p)), append(names, spec.name)
+		}
 	}
-	for _, e := range entries {
-		name, ok := strings.CutSuffix(e.Name(), ".txt")
-		if !ok || e.IsDir() {
-			continue
-		}
-		path := filepath.Join(dir, e.Name())
-		p, known := pieceNamed(name)
-		if !known {
-			return fmt.Errorf("%s: unknown piece; furniture files are %s", path, strings.Join(names, ", "))
-		}
-		src, err := fs.ReadFile(fsys, "furniture/"+e.Name())
-		if err != nil {
-			return fmt.Errorf("%s: %w", path, err)
-		}
-		rows, err := parsePiece(path, src, p)
+	return readFiles(fsys, "furniture", dir, "piece", "furniture", names, func(i int, path string, src []byte) error {
+		rows, err := parsePiece(path, src, ids[i])
 		if err != nil {
 			return err
 		}
-		t.pieces[p] = rows
-	}
-	return nil
+		t.pieces[ids[i]] = rows
+		return nil
+	})
 }
 
-// parsePiece reads the furniture file at path: one grid of the piece's
+// parsePiece reads the file of piece p at path: one grid of the piece's
 // size in its letters.
 func parsePiece(path string, src []byte, p pieceID) (piece, error) {
 	spec := pieceSpecs[p]
@@ -310,11 +315,6 @@ func parsePiece(path string, src []byte, p pieceID) (piece, error) {
 	for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
 		lines = lines[:len(lines)-1]
 	}
-	use := make([]string, len(spec.letters))
-	for i := range spec.letters {
-		use[i] = spec.letters[i : i+1]
-	}
-
 	var rows piece
 	for i, raw := range lines {
 		n, row := i+1, strings.TrimRight(raw, " \t\r")
@@ -330,7 +330,7 @@ func parsePiece(path string, src []byte, p pieceID) (piece, error) {
 		for col := 0; col < len(row); col++ {
 			ch := row[col]
 			if ch != '.' && !strings.ContainsRune(spec.letters, rune(ch)) {
-				return nil, fail(n, "unknown letter %q in column %d; use %s or .", ch, col+1, strings.Join(use, " "))
+				return nil, fail(n, "unknown letter %q in column %d; use %s or .", ch, col+1, spaced(spec.letters))
 			}
 			if p != pieceDesk {
 				continue
@@ -352,10 +352,10 @@ func parsePiece(path string, src []byte, p pieceID) (piece, error) {
 	return rows, nil
 }
 
-// writePieces writes one file per piece of t into dir.
+// writePieces writes one file per piece of t into its folder of dir.
 func writePieces(dir string, t Theme) error {
 	for p, spec := range pieceSpecs {
-		path := filepath.Join(dir, spec.name+".txt")
+		path := filepath.Join(dir, spec.dir, spec.name+".txt")
 		if err := os.WriteFile(path, []byte(strings.Join(t.pieces[p], "\n")+"\n"), 0o644); err != nil {
 			return err
 		}
