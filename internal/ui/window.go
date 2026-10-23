@@ -153,6 +153,7 @@ type window struct {
 	max         bool
 	status      string
 	confirmMove bool // m was pressed once on a herdr agent
+	restAsked   bool // an overdue break held back a prompt; the next enter sends it
 	sel         *selection
 	branch      string // checked out in dir; refreshed with each poll
 }
@@ -477,6 +478,9 @@ func (m Model) typeKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		// Agents read alt+enter as a new line; Claude Code's /terminal-setup
 		// binds shift+enter to it the same way.
 		msg.Mod = msg.Mod&locks | tea.ModAlt
+	}
+	if !hs.shell && msg.Code == tea.KeyEnter && msg.Mod&^locks == 0 && m.holdPrompt() {
+		return m, nil
 	}
 	hs.term.Key(msg)
 	return m, nil

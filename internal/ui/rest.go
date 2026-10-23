@@ -94,3 +94,23 @@ func (m Model) restSummary(working int) string {
 	}
 	return out
 }
+
+// holdPrompt asks once before enter sends a prompt to the open window's
+// agent while a break is overdue; the next enter sends it. An agent waiting
+// on a permission prompt is answered at once.
+func (m Model) holdPrompt() bool {
+	w := m.win
+	if m.rest == nil || !m.restCfg.Friction || !m.rest.State().Overdue {
+		return false
+	}
+	if a, ok := m.agent(w.agentID); ok && a.Blocked {
+		return false
+	}
+	if w.restAsked {
+		w.restAsked = false
+		return false
+	}
+	w.restAsked = true
+	w.status = i18n.Tf("☕ %s without a break · enter again sends it", rest.Short(m.rest.State().Continuous))
+	return true
+}
