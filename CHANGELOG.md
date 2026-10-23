@@ -3,6 +3,11 @@
 Notable changes to BitAgentsHub, newest first. The office shows this file
 in the hub's About tab, so every release adds its section here.
 
+## v0.5.1 (2026-10-23)
+
+- A resumed Claude Code session keeps its station: the office follows the
+  session it went on in, so the agent no longer shows idle while it works.
+
 ## v0.5.0 (2026-10-23)
 
 - The settings tab shows Theme and Colors side by side: Theme lists
