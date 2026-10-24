@@ -582,8 +582,30 @@ type settingsRow struct {
 // drawSettings paints the hub's settings tab: the themes, their colors, the
 // language, Claude's limits, the keys in use and where config.toml lives.
 func (m Model) drawSettings(buf *screen.Buffer) {
-	fw, fh := buf.W, buf.H
-	w := min(fw-4, 90)
+	x, y, w, h, p := m.settingsLayout(buf.W, buf.H)
+	m.hubBox(buf, x, y, w, h, p.footer)
+	for i, l := range p.lines {
+		if i >= h-2 {
+			return
+		}
+		buf.Text(x+2, y+1+i, l.text, l.style)
+		if l.right.text != "" {
+			buf.Text(x+2+p.col, y+1+i, l.right.text, l.right.style)
+		}
+	}
+}
+
+// settingsPage is the settings tab laid out on a floor: its rows, where
+// the Colors column starts in them and the footer.
+type settingsPage struct {
+	col    int
+	lines  []settingsRow
+	footer string
+}
+
+// settingsLayout lays the settings tab out on a floor of fw by fh.
+func (m Model) settingsLayout(fw, fh int) (x, y, w, h int, p settingsPage) {
+	w = min(fw-4, 90)
 	inner := max(1, w-4)
 	col := inner / 2 // where the Colors column starts
 	sw := m.setWin
@@ -705,8 +727,8 @@ func (m Model) drawSettings(buf *screen.Buffer) {
 		list = list[first:min(len(list), first+rows)]
 	}
 	lines := append(append(top, list...), rest...)
-	h := min(maxH, len(lines)+2)
-	x, y := (fw-w)/2, (fh-h)/2
+	h = min(maxH, len(lines)+2)
+	x, y = (fw-w)/2, (fh-h)/2
 	footer := i18n.T(" ←→ tab · ↑↓ move · tab section · enter apply · n new theme · esc close ")
 	switch {
 	case sw.naming:
@@ -718,16 +740,7 @@ func (m Model) drawSettings(buf *screen.Buffer) {
 	case sw.section == sectionKeys:
 		footer = i18n.T(" ←→ tab · ↑↓ move · tab section · enter change · backspace default · esc close ")
 	}
-	m.hubBox(buf, x, y, w, h, footer)
-	for i, l := range lines {
-		if i >= h-2 {
-			return
-		}
-		buf.Text(x+2, y+1+i, l.text, l.style)
-		if l.right.text != "" {
-			buf.Text(x+2+col, y+1+i, l.right.text, l.right.style)
-		}
-	}
+	return x, y, w, h, settingsPage{col, lines, footer}
 }
 
 // leftTruncate keeps the end of a path, the part that names the file.

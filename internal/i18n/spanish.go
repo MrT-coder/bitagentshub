@@ -68,11 +68,10 @@ var spanish = map[string]string{
 	"new agent": "nuevo agente",
 
 	// Hub tabs.
-	"pet":                  "mascota",
-	"usage":                "uso",
-	"settings":             "ajustes",
-	"about":                "info",
-	" ←→ tab · esc close ": " ←→ pestaña · esc cerrar ",
+	"pet":      "mascota",
+	"usage":    "uso",
+	"settings": "ajustes",
+	"about":    "info",
 	" ←→ tab · ↑↓ scroll · esc close ":                                " ←→ pestaña · ↑↓ desplazar · esc cerrar ",
 	"Early preview: tested on Windows with Claude Code so far.":       "Versión preliminar: por ahora probada en Windows con Claude Code.",
 	"Other systems and agents are welcome; reports and help are too.": "Otros sistemas y agentes son bienvenidos; también los reportes y la ayuda.",

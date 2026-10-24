@@ -52,85 +52,80 @@ func (m Model) readUsage() tea.Cmd {
 	}
 }
 
+// usageRow paints one row of the usage tab at x, y, inner cells wide.
+type usageRow func(buf *screen.Buffer, x, y, inner int)
+
 // drawUsage paints the hub's usage tab: a row per station with bars for
 // today's and the session's tokens, the office totals, then what each tool
-// reports, its real limits only when it has them.
+// reports, its real limits only when it has them. The rows scroll with ↑↓
+// and the wheel.
 func (m Model) drawUsage(buf *screen.Buffer) {
-	fw, fh := buf.W, buf.H
+	rows := m.usageRows()
+	x, y, w, h := hubFrame(buf.W, buf.H, usageW, len(rows)+4)
+	m.hubBox(buf, x, y, w, h, i18n.T(" ←→ tab · ↑↓ scroll · esc close "))
+	inner, room := w-4, h-4
+	first := clampScroll(m.usageScroll, len(rows), room)
+	for i, row := range rows[first:min(len(rows), first+room)] {
+		row(buf, x+2, y+2+i, inner)
+	}
+}
+
+// Widths of the station label and of a token count in the usage tab.
+const (
+	usageLabelW = 28
+	usageNumW   = 6
+)
+
+// usageRows are the rows of the usage tab, top to bottom.
+func (m Model) usageRows() []usageRow {
 	agents := m.agents()
 	byID := map[string]int{}
 	for i, a := range agents {
 		byID[a.ID] = i
 	}
-	var rows []int // indexes into agents, in station order
+	var order []int // indexes into agents, in station order
 	for _, id := range office.Order(m.layout) {
 		if i, ok := byID[id]; ok {
-			rows = append(rows, i)
+			order = append(order, i)
 		}
 	}
-	lines := len(rows) + 4
-	for _, r := range m.reports {
-		if r.Today >= 0 {
-			lines++
-		}
-		lines += len(r.Windows)
-	}
-	claudeLimits := false
-	for _, r := range m.reports {
-		claudeLimits = claudeLimits || (r.Tool == "claude" && len(r.Windows) > 0)
-	}
-	if !claudeLimits {
-		lines += 2
-	}
-	w := min(fw-4, 100)
-	h := min(fh-2, lines+4)
-	x, y := (fw-w)/2, (fh-h)/2
-	m.hubBox(buf, x, y, w, h, i18n.T(" ←→ tab · esc close "))
-	inner := w - 4
-	cx, cy := x+2, y+2
-	bottom := y + h - 2
-
-	const labelW = 28
-	numW := 6
-	today, session := i18n.T(" today "), i18n.T(" session ")
-	barW := max(4, (inner-labelW-2*(len([]rune(today))+numW)-len([]rune(session)))/2)
 	var maxToday, maxSession int64
-	for _, i := range rows {
+	for _, i := range order {
 		maxToday = max(maxToday, agents[i].Today.Counted())
 		maxSession = max(maxSession, agents[i].Session.Counted())
 	}
-	for n, i := range rows {
-		if cy >= bottom {
-			return
-		}
+	text := func(s string, st screen.Style) usageRow {
+		return func(buf *screen.Buffer, x, y, inner int) { buf.Text(x, y, truncate(s, inner), st) }
+	}
+	var rows []usageRow
+	for n, i := range order {
 		a := agents[i]
 		label := m.kindOf(a.ID) + " " + a.Project
 		if n < 9 {
 			label = fmt.Sprintf("%d %s", n+1, label)
 		}
-		lx := buf.Text(cx, cy, pad(truncate(label, labelW), labelW), screen.Style{Fg: office.AgentColor(a.ID), HasFg: true, Bold: true})
-		lx = buf.Text(lx, cy, today, modalDim())
-		lx = bar(buf, lx, cy, barW, a.Today.Counted(), maxToday, modalBorder())
-		lx = buf.Text(lx, cy, " "+pad(office.FmtTokens(a.Today.Counted()), numW-1), modalText())
-		lx = buf.Text(lx, cy, session, modalDim())
-		lx = bar(buf, lx, cy, barW, a.Session.Counted(), maxSession, modalBorder())
-		buf.Text(lx, cy, " "+office.FmtTokens(a.Session.Counted()), modalText())
-		cy++
+		rows = append(rows, func(buf *screen.Buffer, x, y, inner int) {
+			barW := usageBarW(inner)
+			lx := buf.Text(x, y, pad(truncate(label, usageLabelW), usageLabelW), screen.Style{Fg: office.AgentColor(a.ID), HasFg: true, Bold: true})
+			lx = buf.Text(lx, y, i18n.T(" today "), modalDim())
+			lx = bar(buf, lx, y, barW, a.Today.Counted(), maxToday, modalBorder())
+			lx = buf.Text(lx, y, " "+pad(office.FmtTokens(a.Today.Counted()), usageNumW-1), modalText())
+			lx = buf.Text(lx, y, i18n.T(" session "), modalDim())
+			lx = bar(buf, lx, y, barW, a.Session.Counted(), maxSession, modalBorder())
+			buf.Text(lx, y, " "+office.FmtTokens(a.Session.Counted()), modalText())
+		})
 	}
-	if s := m.snap; s != nil && cy < bottom {
-		cy++
-		buf.Text(cx, cy, i18n.Tf("office today %s · week %s", office.FmtTokens(s.Today.Counted()), office.FmtTokens(s.Week.Counted())), modalText())
-		cy++
+	if s := m.snap; s != nil {
+		rows = append(rows, text("", modalText()),
+			text(i18n.Tf("office today %s · week %s", office.FmtTokens(s.Today.Counted()), office.FmtTokens(s.Week.Counted())), modalText()))
 	}
+	claudeLimits := false
 	for _, r := range m.reports {
-		if r.Today >= 0 && cy < bottom {
-			buf.Text(cx, cy, i18n.Tf("%s today %s", r.Tool, office.FmtTokens(r.Today)), modalText())
-			cy++
+		claudeLimits = claudeLimits || (r.Tool == "claude" && len(r.Windows) > 0)
+		if r.Today >= 0 {
+			rows = append(rows, text(i18n.Tf("%s today %s", r.Tool, office.FmtTokens(r.Today)), modalText()))
 		}
 		for _, win := range r.Windows {
-			if cy >= bottom {
-				return
-			}
 			style := limitOK
 			switch {
 			case win.UsedPercent >= 90:
@@ -138,17 +133,20 @@ func (m Model) drawUsage(buf *screen.Buffer) {
 			case win.UsedPercent >= 70:
 				style = limitWarn
 			}
-			lx := buf.Text(cx, cy, pad(r.Tool+" "+win.Name, 16), modalText())
-			lx = bar(buf, lx, cy, barW, int64(win.UsedPercent*10), 1000, style)
-			buf.Text(lx, cy, i18n.Tf(" %3.0f%% · resets %s", win.UsedPercent, resetTime(win.ResetsAt)), modalText())
-			cy++
+			rows = append(rows, func(buf *screen.Buffer, x, y, inner int) {
+				barW := usageBarW(inner)
+				lx := buf.Text(x, y, pad(r.Tool+" "+win.Name, 16), modalText())
+				lx = bar(buf, lx, y, barW, int64(win.UsedPercent*10), 1000, style)
+				buf.Text(lx, y, i18n.Tf(" %3.0f%% · resets %s", win.UsedPercent, resetTime(win.ResetsAt)), modalText())
+			})
 		}
 	}
-	if !claudeLimits && cy+1 < bottom {
+	if !claudeLimits {
 		// Claude tells its limits only to its status line, which is off until
 		// turned on in the settings tab.
-		buf.Text(cx, cy+1, truncate(i18n.T("Claude limits are off: turn them on in the settings tab."), inner), modalDim())
+		rows = append(rows, text("", modalText()), text(i18n.T("Claude limits are off: turn them on in the settings tab."), modalDim()))
 	}
+	return rows
 }
 
 // bar draws a w-cell bar filled in proportion to v of most and returns the
@@ -180,4 +178,11 @@ func resetTime(t time.Time) string {
 // weekday is a day's short name in the current language.
 func weekday(d time.Weekday) string {
 	return [...]string{i18n.T("Sun"), i18n.T("Mon"), i18n.T("Tue"), i18n.T("Wed"), i18n.T("Thu"), i18n.T("Fri"), i18n.T("Sat")}[d]
+}
+
+// usageBarW is how wide each of a station's two bars is in a usage row
+// inner cells wide.
+func usageBarW(inner int) int {
+	today, session := i18n.T(" today "), i18n.T(" session ")
+	return max(4, (inner-usageLabelW-2*(len([]rune(today))+usageNumW)-len([]rune(session)))/2)
 }
