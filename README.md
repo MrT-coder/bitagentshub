@@ -134,7 +134,8 @@ From source: `go build -o bah.exe .`
 | click the pet, `p` | Open the hub (see [The pet and its hub](#the-pet-and-its-hub)); `u` and `s` open it on the usage and settings tabs |
 | `t` | Open a terminal in the selected agent's folder |
 | `b` | Open the selected agent's task note for today (see [Task board](#task-board)) |
-| `n` | Start a new agent or terminal in a project |
+| `n` | Start a new agent or terminal in a project; in its list the wheel or a click chooses a folder, a click on the chosen one starts it and a click outside closes the list |
+| mouse wheel | Scroll the floor when some desks do not fit on it |
 | `←` `→` `↑` `↓` / `h` `l` `j` `k` / `tab` | Move the selection |
 | `g` | Jump to the agent's pane in herdr (only while herdr runs) |
 | `q`, `esc` | Quit; agents and terminals keep running in the daemon (without it, asks again while they run) |
@@ -321,7 +322,8 @@ usage tab.
 
 Clicking the pet, `p` on the board or `ctrl+a p` in a window opens the hub
 over whatever is on screen: one window with the **pet**, **usage**,
-**settings** and **about** tabs. `←`/`→` switch tabs; `esc`, `q`, `p` or
+**settings** and **about** tabs. `←`/`→` or a click on a tab switch tabs;
+a click outside the hub, `esc`, `q`, `p` or
 `ctrl+a p` close it, and nothing typed or clicked meanwhile reaches a
 program. `u` / `ctrl+a u` and `s` / `ctrl+a s` open it on the usage and
 settings tabs, or close it when it already shows that tab.
@@ -332,7 +334,7 @@ settings tabs, or close it when it already shows that tab.
   saved as `[pet] name` in `config.toml`, changing only that line. Resting
   the mouse on the pet shows its name over it.
 - **About**: the version and this project's [changelog](CHANGELOG.md),
-  carried inside the binary; `↑`/`↓` scroll it.
+  carried inside the binary; `↑`/`↓` and the wheel scroll it.
 
 ## Breaks
 
@@ -378,7 +380,8 @@ the session's tokens (scaled to the largest shown), then the office totals
 for today and the week. Below come the tools that report their own use on
 this machine and, only when a tool exposes them locally, its real limits
 with the share used and the reset time. Nothing reads credentials or asks a
-server: a tool without local limits shows usage only.
+server: a tool without local limits shows usage only. When the rows do not
+fit, `↑`/`↓` and the wheel scroll them.
 
 - **Claude Code** keeps its 5-hour and weekly limits to itself except for the
   status line it runs (only for Pro and Max plans, after the first reply in a
@@ -408,7 +411,9 @@ server: a tool without local limits shows usage only.
 
 ## Settings tab
 
-`↑`/`↓` move and `tab` changes section:
+`↑`/`↓` move and `tab` changes section. With the mouse, a click puts the
+cursor on a row and its section, a click on the row under the cursor acts
+like `enter`, and the wheel scrolls the tab when it does not fit:
 
 - **Theme**: `default` and every theme that draws its own shapes (people,
   furniture, room or pet), the active one marked; themes that only recolor
