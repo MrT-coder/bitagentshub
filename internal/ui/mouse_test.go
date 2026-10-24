@@ -203,3 +203,41 @@ func TestClickingASettingsRowSelectsItAndClickingItAgainActs(t *testing.T) {
 		t.Errorf("a click on the selected key row should wait for its new key:\n%s", view(m))
 	}
 }
+
+func TestThePickerMovesWithTheWheelAndStartsTheRowClickedTwice(t *testing.T) {
+	m, _, rec := twoAgentOffice(t)
+	games := deck
+	games.Recent = true
+	m = press(withProjects(m, portal, games), key("n"))
+	list := m.picker.choices()
+	if len(list) != 2 || m.picker.sel != 0 {
+		t.Fatalf("want two folders with the first selected, got %d, sel %d", len(list), m.picker.sel)
+	}
+	m = press(m, wheel(false))
+	if m.picker.sel != 1 {
+		t.Errorf("the wheel down should select the next folder, sel %d", m.picker.sel)
+	}
+	m = press(m, wheel(true))
+	if m.picker.sel != 0 {
+		t.Errorf("the wheel up should select the previous folder, sel %d", m.picker.sel)
+	}
+
+	second := list[1]
+	m = clickOn(t, m, second.Name)
+	if m.picker == nil || m.picker.sel != 1 || len(rec.started) != 0 {
+		t.Fatalf("one click should only select %s", second.Name)
+	}
+	m = clickOn(t, m, second.Name)
+	if len(rec.started) != 1 || rec.started[0].dir != second.Path {
+		t.Errorf("a click on the selected folder should start an agent there, started %+v", rec.started)
+	}
+}
+
+func TestAClickOutsideThePickerClosesIt(t *testing.T) {
+	m, _, rec := twoAgentOffice(t)
+	m = press(withProjects(m, portal), key("n"))
+	m = press(m, click(1, officeY))
+	if m.picker != nil || len(rec.started) != 0 {
+		t.Errorf("a click outside should close the picker and start nothing, started %+v", rec.started)
+	}
+}
