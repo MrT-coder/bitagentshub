@@ -38,7 +38,7 @@ func (m Model) petLabel() string {
 // shows. Only the office floor hovers; a window or modal on top hides it.
 func (m Model) hover(mouse tea.Mouse) Model {
 	m.hoverPet = !m.hubOpen && m.win == nil && m.picker == nil &&
-		office.PetHit(m.layout, mouse.X-1, mouse.Y-officeY)
+		office.PetHit(m.layout, mouse.X-1, mouse.Y-officeY+m.floorScroll)
 	return m
 }
 
@@ -48,7 +48,7 @@ func (m Model) drawPetName(buf *screen.Buffer) {
 		return
 	}
 	x, y, _, _ := m.layout.PetCells()
-	buf.Text(x, y-1, " "+m.petLabel()+" ", screen.Style{Fg: screen.RGB{R: 0x2e, G: 0x34, B: 0x40}, HasFg: true,
+	buf.Text(x, y-1-m.floorScroll, " "+m.petLabel()+" ", screen.Style{Fg: screen.RGB{R: 0x2e, G: 0x34, B: 0x40}, HasFg: true,
 		Bg: screen.RGB{R: 0xeb, G: 0xcb, B: 0x8b}, HasBg: true, Bold: true})
 }
 
