@@ -91,7 +91,8 @@ func (m Model) hubKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.renameKey(msg) // every key belongs to the name being typed
 	}
 	if sw := m.setWin; m.hubTab == tabSettings && sw != nil && (sw.capturing || sw.naming) {
-		return m.settingsKey(msg) // every key belongs to the key or name being typed
+		m, cmd := m.settingsKey(msg) // every key belongs to the key or name being typed
+		return m.followSettings(), cmd
 	}
 	k := msg.String()
 	if m.prefixed {
@@ -129,7 +130,8 @@ func (m Model) hubKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.renaming, m.petDraft, m.petStatus = true, m.petName, ""
 		}
 	case tabSettings:
-		return m.settingsKey(msg)
+		m, cmd := m.settingsKey(msg)
+		return m.followSettings(), cmd
 	case tabUsage, tabAbout:
 		switch k {
 		case "up", "k":
@@ -171,6 +173,9 @@ func (m Model) hubMouse(msg tea.MouseMsg) (Model, tea.Cmd) {
 		if fx < x || fx >= x+w || fy < y || fy >= y+h {
 			return m.closeHub(), nil
 		}
+		if m.hubTab == tabSettings {
+			return m.settingsClick(fx-x, fy-y-1)
+		}
 	}
 	return m, nil
 }
@@ -182,6 +187,8 @@ func (m Model) scrollHub(delta int) Model {
 	switch m.hubTab {
 	case tabUsage:
 		m.usageScroll = clampScroll(m.usageScroll+delta, len(m.usageRows()), h-4)
+	case tabSettings:
+		return m.scrollSettings(delta)
 	case tabAbout:
 		head, log := m.aboutLines()
 		m.aboutScroll = clampScroll(m.aboutScroll+delta, len(log), aboutRoom(h, len(head)))

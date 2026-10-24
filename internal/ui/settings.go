@@ -123,6 +123,7 @@ type settingsWin struct {
 	keySel     int       // the row of keyRows under the cursor
 	capturing  bool      // waiting for the new key of keyRows[keySel]
 	capPrefix  bool      // the prefix was pressed; the next key goes after it
+	scroll     int       // the first body row shown
 }
 
 // settingsMsg is what a background Settings call reports back.
@@ -242,7 +243,7 @@ func (m Model) settingsDone(msg settingsMsg) Model {
 	if msg.err != nil {
 		sw.status = msg.err.Error()
 	}
-	return m
+	return m.followSettings()
 }
 
 // sceneList is the Theme column: the built-in theme, then the themes with
@@ -573,10 +574,19 @@ type settingsLine struct {
 }
 
 // settingsRow is a row of the settings tab; right is drawn from the middle
-// of the box on, for the Colors column beside the themes.
+// of the box on, for the Colors column beside the themes. hit and rightHit
+// are what a click on either side of the row picks.
 type settingsRow struct {
 	settingsLine
-	right settingsLine
+	right         settingsLine
+	hit, rightHit pick
+}
+
+// pick is what a click on a settings row picks: a section and its row, or
+// only the section when row is -1. The zero pick picks nothing.
+type pick struct {
+	ok           bool
+	section, row int
 }
 
 // drawSettings paints the hub's settings tab: the themes, their colors, the
@@ -584,7 +594,7 @@ type settingsRow struct {
 func (m Model) drawSettings(buf *screen.Buffer) {
 	x, y, w, h, p := m.settingsLayout(buf.W, buf.H)
 	m.hubBox(buf, x, y, w, h, p.footer)
-	for i, l := range p.lines {
+	for i, l := range p.shown() {
 		if i >= h-2 {
 			return
 		}
@@ -595,19 +605,29 @@ func (m Model) drawSettings(buf *screen.Buffer) {
 	}
 }
 
-// settingsPage is the settings tab laid out on a floor: its rows, where
-// the Colors column starts in them and the footer.
+// settingsPage is the settings tab laid out on a floor: the heading on top,
+// the body that scrolls under it, the outcome and config.toml at the
+// bottom, where the Colors column starts and the footer.
 type settingsPage struct {
-	col    int
-	lines  []settingsRow
-	footer string
+	col             int
+	top, body, tail []settingsRow
+	first, room     int // the first body row shown and how many body rows fit
+	cursor          int // the body row under the cursor, -1 for none
+	footer          string
+}
+
+// shown is the rows on screen, top to bottom.
+func (p settingsPage) shown() []settingsRow {
+	body := p.body[p.first:min(len(p.body), p.first+p.room)]
+	return append(append(slices.Clone(p.top), body...), p.tail...)
 }
 
 // settingsLayout lays the settings tab out on a floor of fw by fh.
 func (m Model) settingsLayout(fw, fh int) (x, y, w, h int, p settingsPage) {
 	w = min(fw-4, 90)
 	inner := max(1, w-4)
-	col := inner / 2 // where the Colors column starts
+	p.col = inner / 2 // where the Colors column starts
+	p.cursor = -1
 	sw := m.setWin
 	heading := modalText()
 	heading.Bold = true
@@ -619,30 +639,37 @@ func (m Model) settingsLayout(fw, fh int) (x, y, w, h int, p settingsPage) {
 		}
 		return heading
 	}
-
-	var top, rest []settingsRow
-	var list []settingsRow
-	add := func(to *[]settingsRow, text string, st screen.Style) {
-		*to = append(*to, settingsRow{settingsLine: settingsLine{truncate(text, inner), st}})
+	add := func(to *[]settingsRow, text string, st screen.Style, hit pick) {
+		*to = append(*to, settingsRow{settingsLine: settingsLine{truncate(text, inner), st}, hit: hit})
 	}
+	// here makes the next body row the cursor's when on is true.
+	here := func(on bool) {
+		if on {
+			p.cursor = len(p.body)
+		}
+	}
+	section := func(s int) pick { return pick{true, s, -1} }
 	switch {
 	case m.settings == nil:
-		add(&top, i18n.T("Settings are not available here."), modalDim())
+		add(&p.top, i18n.T("Settings are not available here."), modalDim(), pick{})
 	case !sw.loaded:
-		add(&top, i18n.T("Reading…"), modalDim())
+		add(&p.top, i18n.T("Reading…"), modalDim(), pick{})
 	default:
 		// Theme picks the shapes, Colors the theme whose colors they wear,
 		// side by side over the same names. The built-in theme is the base
 		// under every theme and has no colors to lend: in Colors its row
 		// stands for the theme's own colors.
 		row := func(text string, st screen.Style, right string, rst screen.Style) settingsRow {
-			return settingsRow{settingsLine{truncate(text, col-1), st}, settingsLine{truncate(right, inner-col), rst}}
+			return settingsRow{settingsLine: settingsLine{truncate(text, p.col-1), st}, right: settingsLine{truncate(right, inner-p.col), rst}}
 		}
-		top = append(top, row(i18n.T("Theme"), focus(sectionTheme), i18n.T("Colors"), focus(sectionColors)))
+		head := row(i18n.T("Theme"), focus(sectionTheme), i18n.T("Colors"), focus(sectionColors))
+		head.hit, head.rightHit = section(sectionTheme), section(sectionColors)
+		p.top = append(p.top, head)
 		scenes, colors := sw.sceneList(), sw.colorList()
 		for i := range max(len(scenes), len(colors)) {
 			var left, right string
 			st, pst := modalText(), modalText()
+			var hit, rightHit pick
 			if i < len(scenes) {
 				mark := "  "
 				if scenes[i] == sw.active {
@@ -650,6 +677,7 @@ func (m Model) settingsLayout(fw, fh int) (x, y, w, h int, p settingsPage) {
 				}
 				left = mark + themeLabel(scenes[i])
 				st.Reverse = i == sw.sel && sw.section == sectionTheme
+				hit = pick{true, sectionTheme, i}
 			}
 			if i < len(colors) {
 				mark, label := "  ", themeLabel(colors[i])
@@ -661,14 +689,19 @@ func (m Model) settingsLayout(fw, fh int) (x, y, w, h int, p settingsPage) {
 				}
 				right = mark + label
 				pst.Reverse = i == sw.palSel && sw.section == sectionColors
+				rightHit = pick{true, sectionColors, i}
 			}
-			list = append(list, row(left, st, right, pst))
+			here(st.Reverse || pst.Reverse)
+			r := row(left, st, right, pst)
+			r.hit, r.rightHit = hit, rightHit
+			p.body = append(p.body, r)
 		}
 		if sw.naming {
-			add(&rest, i18n.T("new theme name: ")+sw.name+"█", modalBorder())
+			here(true)
+			add(&p.body, i18n.T("new theme name: ")+sw.name+"█", modalBorder(), pick{})
 		}
-		add(&rest, "", modalText())
-		add(&rest, i18n.T("Language"), focus(sectionLanguage))
+		add(&p.body, "", modalText(), pick{})
+		add(&p.body, i18n.T("Language"), focus(sectionLanguage), section(sectionLanguage))
 		for i, l := range i18n.Langs {
 			mark := "  "
 			if l == sw.language {
@@ -678,10 +711,11 @@ func (m Model) settingsLayout(fw, fh int) (x, y, w, h int, p settingsPage) {
 			if i == sw.langSel && sw.section == sectionLanguage {
 				st.Reverse = true
 			}
-			add(&rest, mark+l.Name(), st)
+			here(st.Reverse)
+			add(&p.body, mark+l.Name(), st, pick{true, sectionLanguage, i})
 		}
-		add(&rest, "", modalText())
-		add(&rest, i18n.T("Claude limits"), focus(sectionLimits))
+		add(&p.body, "", modalText(), pick{})
+		add(&p.body, i18n.T("Claude limits"), focus(sectionLimits), section(sectionLimits))
 		state := i18n.T("unknown")
 		if sw.limitsOK {
 			state = i18n.T("off")
@@ -689,58 +723,132 @@ func (m Model) settingsLayout(fw, fh int) (x, y, w, h int, p settingsPage) {
 				state = i18n.T("on")
 			}
 		}
-		add(&rest, i18n.Tf("Claude limits: %s (BitAgentsHub as Claude Code's status line)", state), modalText())
-		add(&rest, i18n.T("enter turns it on or off; settings.json is backed up before it changes."), modalDim())
+		here(sw.section == sectionLimits)
+		add(&p.body, i18n.Tf("Claude limits: %s (BitAgentsHub as Claude Code's status line)", state), modalText(), pick{true, sectionLimits, 0})
+		add(&p.body, i18n.T("enter turns it on or off; settings.json is backed up before it changes."), modalDim(), pick{true, sectionLimits, 0})
 	}
-	add(&rest, "", modalText())
-	add(&rest, i18n.T("Keys"), focus(sectionKeys))
+	add(&p.body, "", modalText(), pick{})
+	add(&p.body, i18n.T("Keys"), focus(sectionKeys), section(sectionKeys))
 	for i, r := range keyRows {
 		st := modalText()
 		if i == sw.keySel && sw.section == sectionKeys {
 			st.Reverse = true
 		}
-		add(&rest, fmt.Sprintf("  %-15s %s", r.label(), m.keysText(r.action)), st)
+		here(st.Reverse)
+		add(&p.body, fmt.Sprintf("  %-15s %s", r.label(), m.keysText(r.action)), st, pick{true, sectionKeys, i})
 	}
-	// The outcome of the last action and where config.toml is always show:
-	// on a short floor the keys and blank lines above them go first.
-	var tail []settingsRow
+	// The outcome of the last action and where config.toml is always show;
+	// the body scrolls between them and the heading.
 	if sw.configPath != "" {
-		add(&tail, "config "+leftTruncate(sw.configPath, inner-len("config ")), modalDim())
+		add(&p.tail, "config "+leftTruncate(sw.configPath, inner-len("config ")), modalDim(), pick{})
 	}
 	if sw.status != "" {
-		add(&tail, sw.status, modalBorder())
+		add(&p.tail, sw.status, modalBorder(), pick{})
 	}
 
-	// The theme list scrolls around the selection when the floor is short.
 	maxH := max(3, fh-2)
-	if room := max(0, maxH-2-len(top)-len(tail)-1); len(rest) > room {
-		rest = rest[:room]
-	}
-	rest = append(rest, tail...)
-	rows := max(1, min(len(list), maxH-2-len(top)-len(rest)))
-	cur := sw.sel
-	if sw.section == sectionColors {
-		cur = sw.palSel
-	}
-	first := max(0, min(cur-rows/2, len(list)-rows))
-	if len(list) > 0 {
-		list = list[first:min(len(list), first+rows)]
-	}
-	lines := append(append(top, list...), rest...)
-	h = min(maxH, len(lines)+2)
+	p.room = max(1, maxH-2-len(p.top)-len(p.tail))
+	p.first = clampScroll(sw.scroll, len(p.body), p.room)
+	h = min(maxH, len(p.top)+min(len(p.body), p.room)+len(p.tail)+2)
 	x, y = (fw-w)/2, (fh-h)/2
-	footer := i18n.T(" ←→ tab · ↑↓ move · tab section · enter apply · n new theme · esc close ")
+	p.footer = i18n.T(" ←→ tab · ↑↓ move · tab section · enter apply · n new theme · esc close ")
 	switch {
 	case sw.naming:
-		footer = i18n.T(" type a folder name · enter create · esc cancel ")
+		p.footer = i18n.T(" type a folder name · enter create · esc cancel ")
 	case sw.capturing:
-		footer = i18n.T(" press the new key · esc cancel ")
+		p.footer = i18n.T(" press the new key · esc cancel ")
 	case sw.section == sectionLanguage, sw.section == sectionColors:
-		footer = i18n.T(" ←→ tab · ↑↓ move · tab section · enter apply · esc close ")
+		p.footer = i18n.T(" ←→ tab · ↑↓ move · tab section · enter apply · esc close ")
 	case sw.section == sectionKeys:
-		footer = i18n.T(" ←→ tab · ↑↓ move · tab section · enter change · backspace default · esc close ")
+		p.footer = i18n.T(" ←→ tab · ↑↓ move · tab section · enter change · backspace default · esc close ")
 	}
-	return x, y, w, h, settingsPage{col, lines, footer}
+	return x, y, w, h, p
+}
+
+// followSettings scrolls the settings body just enough to show the row
+// under the cursor.
+func (m Model) followSettings() Model {
+	sw := m.setWin
+	if sw == nil || !m.hubOpen || m.hubTab != tabSettings {
+		return m
+	}
+	_, _, _, _, p := m.settingsLayout(m.floorW(), m.floorH())
+	sw.scroll = p.first
+	switch {
+	case p.cursor < 0:
+	case p.cursor < p.first:
+		sw.scroll = p.cursor
+	case p.cursor >= p.first+p.room:
+		sw.scroll = p.cursor - p.room + 1
+	}
+	return m
+}
+
+// scrollSettings scrolls the settings body by delta rows.
+func (m Model) scrollSettings(delta int) Model {
+	_, _, _, _, p := m.settingsLayout(m.floorW(), m.floorH())
+	m.setWin.scroll = clampScroll(p.first+delta, len(p.body), p.room)
+	return m
+}
+
+// settingsClick takes a click at column cx of row cy inside the settings
+// window's border: it moves the cursor to the row clicked, and a click on
+// the row already under the cursor acts like enter.
+func (m Model) settingsClick(cx, cy int) (Model, tea.Cmd) {
+	sw := m.setWin
+	if m.settings == nil || !sw.loaded {
+		return m, nil
+	}
+	_, _, _, h, p := m.settingsLayout(m.floorW(), m.floorH())
+	rows := p.shown()
+	if cy < 0 || cy >= len(rows) || cy >= h-2 {
+		return m, nil
+	}
+	pk := rows[cy].hit
+	if cx >= p.col+2 && rows[cy].rightHit.ok {
+		pk = rows[cy].rightHit
+	}
+	switch {
+	case !pk.ok:
+		return m, nil
+	case pk.row >= 0 && pk.section == sw.section && pk.row == sw.cursor():
+		m, cmd := m.settingsKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+		return m.followSettings(), cmd
+	}
+	sw.section = pk.section
+	if pk.row >= 0 {
+		sw.setCursor(pk.row)
+	}
+	return m.followSettings(), nil
+}
+
+// cursor is the row under the cursor in the section it is on.
+func (sw *settingsWin) cursor() int {
+	switch sw.section {
+	case sectionTheme:
+		return sw.sel
+	case sectionColors:
+		return sw.palSel
+	case sectionLanguage:
+		return sw.langSel
+	case sectionKeys:
+		return sw.keySel
+	}
+	return 0
+}
+
+// setCursor puts the cursor on a row of the section it is on.
+func (sw *settingsWin) setCursor(row int) {
+	switch sw.section {
+	case sectionTheme:
+		sw.sel = row
+	case sectionColors:
+		sw.palSel = row
+	case sectionLanguage:
+		sw.langSel = row
+	case sectionKeys:
+		sw.keySel = row
+	}
 }
 
 // leftTruncate keeps the end of a path, the part that names the file.
