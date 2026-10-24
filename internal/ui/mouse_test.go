@@ -241,3 +241,39 @@ func TestAClickOutsideThePickerClosesIt(t *testing.T) {
 		t.Errorf("a click outside should close the picker and start nothing, started %+v", rec.started)
 	}
 }
+
+func TestTheWheelScrollsAFloorTooShortForItsDesks(t *testing.T) {
+	m := crowdedOffice(t, 8, 60)
+	m = update(m, tea.WindowSizeMsg{Width: 60, Height: 30})
+	if m.layout.Needed <= m.layout.H {
+		t.Fatalf("want desks below the floor: needed %d, floor %d", m.layout.Needed, m.layout.H)
+	}
+	assertShows(t, m, "scroll the floor")
+	lowest := ""
+	for id, st := range m.layout.Stations {
+		if lowest == "" || st.Y > m.layout.Stations[lowest].Y {
+			lowest = id
+		}
+	}
+	st := m.layout.Stations[lowest]
+	if officeY+st.Y/2+1 < officeY+m.floorH() {
+		t.Fatalf("the lowest desk should start off screen")
+	}
+
+	area := "acme-company · " // the room's name sits at the top of the floor
+	assertShows(t, m, area)
+	for range 30 {
+		m = press(m, wheel(false))
+	}
+	assertHides(t, m, area)
+	m = press(m, click(1+st.X+2, officeY+st.Y/2+1-m.floorScroll))
+	if m.win == nil || m.win.agentID != lowest {
+		t.Fatalf("a click on the scrolled desk should open %s:\n%s", lowest, view(m))
+	}
+	m = press(m, key("f10")) // closes the window
+
+	for range 30 {
+		m = press(m, wheel(true))
+	}
+	assertShows(t, m, area)
+}

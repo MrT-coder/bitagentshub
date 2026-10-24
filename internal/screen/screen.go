@@ -65,6 +65,17 @@ func (b *Buffer) CopyFrom(src *Buffer) {
 	}
 }
 
+// CopyRows fills b with src's rows from row from on; it does nothing when
+// their widths differ, and rows past src's end stay as they are.
+func (b *Buffer) CopyRows(src *Buffer, from int) {
+	if b.W != src.W {
+		return
+	}
+	for y := max(0, -from); y < b.H && from+y < src.H; y++ {
+		copy(b.cells[y*b.W:(y+1)*b.W], src.cells[(from+y)*src.W:])
+	}
+}
+
 func (b *Buffer) at(x, y int) *cell {
 	if x < 0 || y < 0 || x >= b.W || y >= b.H {
 		return nil

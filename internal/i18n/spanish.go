@@ -11,7 +11,7 @@ var spanish = map[string]string{
 	"No agents running. Press n to start one.": "No hay agentes en marcha. Presiona n para iniciar uno.",
 	" office ": " oficina ",
 	" … waiting for a key: 1-9 opens that station":                                    " … esperando una tecla: 1-9 abre esa estación",
-	"Some desks are off screen; enlarge the terminal.":                                "Algunos escritorios quedan fuera de la pantalla; agranda la terminal.",
+	"Some desks are off screen; scroll the floor with the wheel.":                     "Algunos escritorios quedan fuera de la pantalla; desplaza el piso con la rueda del mouse.",
 	"q quit · ←→ select · enter open · %s station · p hub · t terminal · n new agent": "q salir · ←→ elegir · enter abrir · %s estación · p centro · t terminal · n nuevo agente",
 	" · g herdr · herdr: %d linked":                                                   " · g herdr · herdr: %d enlazados",
 	" · %d todo":                                                                      " · %d pendientes",
