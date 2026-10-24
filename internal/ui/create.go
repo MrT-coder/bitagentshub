@@ -186,12 +186,55 @@ func (m Model) created(msg createdMsg) (Model, tea.Cmd) {
 	return m, m.herdrPoll()
 }
 
+// pickerFrame is where the picker sits on the floor, and the first and the
+// number of its list rows it shows; the list scrolls around the selection.
+func (m Model) pickerFrame() (x, y, w, h, first, rows int) {
+	fw, fh := m.floorW(), m.floorH()
+	w, h = min(max(fw-8, 20), 90), min(max(fh-4, 8), 26)
+	w, h = min(w, fw), min(h, fh)
+	rows = h - 4
+	first = max(0, min(m.picker.sel-rows/2, len(m.picker.choices())-rows))
+	return (fw - w) / 2, (fh - h) / 2, w, h, first, rows
+}
+
+// pickerMouse handles the mouse over the picker: the wheel moves the
+// selection, a click selects a folder and a click on the selected one
+// starts it like enter. A click outside closes the picker.
+func (m Model) pickerMouse(msg tea.MouseMsg) (Model, tea.Cmd) {
+	p := m.picker
+	switch msg := msg.(type) {
+	case tea.MouseWheelMsg:
+		switch msg.Button {
+		case tea.MouseWheelUp:
+			return m.updatePicker(tea.KeyPressMsg{Code: tea.KeyUp})
+		case tea.MouseWheelDown:
+			return m.updatePicker(tea.KeyPressMsg{Code: tea.KeyDown})
+		}
+	case tea.MouseClickMsg:
+		if msg.Button != tea.MouseLeft {
+			return m, nil
+		}
+		fx, fy := msg.X-1, msg.Y-officeY
+		x, y, w, h, first, rows := m.pickerFrame()
+		if fx < x || fx >= x+w || fy < y || fy >= y+h {
+			m.picker = nil
+			return m, nil
+		}
+		i := first + fy - (y + 3)
+		if fy < y+3 || fy >= y+3+rows || i >= len(p.choices()) {
+			return m, nil
+		}
+		if i == p.sel {
+			return m.updatePicker(tea.KeyPressMsg{Code: tea.KeyEnter})
+		}
+		p.sel = i
+	}
+	return m, nil
+}
+
 // drawPicker paints the project list as a modal.
 func (m Model) drawPicker(buf *screen.Buffer) {
-	fw, fh := m.floorW(), m.floorH()
-	w, h := min(max(fw-8, 20), 90), min(max(fh-4, 8), 26)
-	w, h = min(w, fw), min(h, fh)
-	x, y := (fw-w)/2, (fh-h)/2
+	x, y, w, h, first, rows := m.pickerFrame()
 	p := m.picker
 	footer := i18n.Tf(" ↑↓ choose · enter start %s · ctrl+t terminal · esc close ", m.agentCmd[0])
 	if p.status != "" {
@@ -210,12 +253,10 @@ func (m Model) drawPicker(buf *screen.Buffer) {
 	}
 
 	list := p.choices()
-	rows := h - 4
 	if len(list) == 0 {
 		buf.Text(x+2, y+3, i18n.T("No folder matches."), modalDim())
 		return
 	}
-	first := max(0, min(p.sel-rows/2, len(list)-rows))
 	nameW := min(28, inner/2)
 	// Folders with the same name and group show their whole parent folder.
 	same := map[string]int{}

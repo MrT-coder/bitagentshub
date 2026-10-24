@@ -345,12 +345,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m.stripMouse(msg)
 			}
 		}
+		if m.picker != nil {
+			return m.pickerMouse(msg) // the picker is on top of any window
+		}
 		if m.win != nil {
 			return m.windowMouse(msg)
 		}
 		click, ok := msg.(tea.MouseClickMsg)
-		if !ok || click.Button != tea.MouseLeft || m.picker != nil {
-			return m, nil // a modal is on top; clicks behind it are ignored
+		if !ok || click.Button != tea.MouseLeft {
+			return m, nil
 		}
 		if office.PetHit(m.layout, click.X-1, click.Y-officeY) {
 			return m.openHub(tabPet)
