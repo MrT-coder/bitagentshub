@@ -91,7 +91,8 @@ type Model struct {
 	sources     []usage.Source
 	hubOpen     bool // the pet's hub is open on hubTab
 	hubTab      int
-	aboutScroll int
+	aboutScroll int // first changelog line the about tab shows
+	usageScroll int // first row the usage tab shows
 	changelog   string
 	updateCheck func() string // nil when updates are not looked for
 	newer       string        // a newer release's tag, once the check finds one
@@ -334,7 +335,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.restInput()
 		if m.hubOpen {
-			return m, nil // the hub is on top
+			return m.hubMouse(msg) // the hub is on top
 		}
 		switch msg.(type) {
 		case tea.MouseClickMsg, tea.MouseWheelMsg:
