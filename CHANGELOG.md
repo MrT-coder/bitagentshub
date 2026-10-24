@@ -3,6 +3,15 @@
 Notable changes to BitAgentsHub, newest first. The office shows this file
 in the hub's About tab, so every release adds its section here.
 
+## v0.6.0 (2026-10-23)
+
+- A supervision clock paces your breaks with nothing to start: it counts
+  the time you supervise agents, more with more agents at work, and 5
+  minutes without input is a break. At 50 minutes the header suggests one
+  and the pet gets tired; at 90 minutes `enter` on an agent asks once
+  before it sends a prompt. Today's time and breaks show in the pet tab.
+  `[rest]` in `config.toml` changes the times or turns it off.
+
 ## v0.5.1 (2026-10-23)
 
 - A resumed Claude Code session keeps its station: the office follows the
