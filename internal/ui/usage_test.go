@@ -1,6 +1,8 @@
 package ui
 
 import (
+	tea "charm.land/bubbletea/v2"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -98,5 +100,31 @@ func TestUsageWindowOpensFromAWindowAndReturnsToIt(t *testing.T) {
 	m = prefixed(m, "u")
 	if strings.Contains(view(m), "3.4M") || m.win == nil {
 		t.Errorf("ctrl+a u again should close the usage window and leave the window:\n%s", view(m))
+	}
+}
+
+func TestOnAPhoneWidthTheUsageRowsKeepBothTotalsInsteadOfBars(t *testing.T) {
+	m := spendingOffice(t)
+	m = update(m, tea.WindowSizeMsg{Width: 44, Height: 30})
+	m = press(m, key("u"))
+	v := view(m)
+	for _, want := range []string{"portal-front", "1.2M/3.4M"} {
+		if !strings.Contains(v, want) {
+			t.Errorf("a narrow usage tab missing %q:\n%s", want, v)
+		}
+	}
+	if strings.Contains(v, "█") {
+		t.Errorf("bars do not fit a phone width:\n%s", v)
+	}
+}
+
+func TestOnAPhoneWidthALimitRowShowsItsWholeResetText(t *testing.T) {
+	m := spendingOffice(t, &fakeSource{ok: true, r: usage.Report{Tool: "claude", Today: -1, Windows: []usage.Window{{Name: "5h", UsedPercent: 10}}}})
+	m = update(m, tea.WindowSizeMsg{Width: 44, Height: 30})
+	m = press(m, key("u"))
+	// The row ends before the hub's right border, which shows next to the
+	// office wall.
+	if v := view(m); !regexp.MustCompile(`10% · resets \? *│ *│`).MatchString(v) {
+		t.Errorf("the limit row runs over the hub's border:\n%s", v)
 	}
 }
