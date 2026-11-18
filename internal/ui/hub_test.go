@@ -114,3 +114,19 @@ func TestTheHubIsTheOnlyKeyInTheFooterAndTheSettingsKeys(t *testing.T) {
 		}
 	}
 }
+
+func TestTabLabelsAbbreviateInsteadOfDroppingTabsOnANarrowWindow(t *testing.T) {
+	full := tabLabels(0, 40)
+	if len(full) != tabCount || full[tabAbout].text != " "+tabName(tabAbout)+" " {
+		t.Fatalf("a wide window should keep the full names: %+v", full)
+	}
+	narrow := tabLabels(0, 28)
+	if len(narrow) != tabCount {
+		t.Fatalf("every tab should stay reachable on a narrow window, got %+v", narrow)
+	}
+	for _, l := range narrow {
+		if l.x+len([]rune(l.text)) > 28-2 {
+			t.Errorf("label %q at %d runs past the border", l.text, l.x)
+		}
+	}
+}

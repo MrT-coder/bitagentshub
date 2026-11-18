@@ -240,12 +240,30 @@ type tabLabel struct {
 }
 
 // tabLabels lays the tab labels along the top border of a window at x, w
-// wide; the labels that do not fit are left out.
+// wide. When the full names do not fit they shrink to three letters, so every
+// tab stays reachable on a narrow window; the labels that still do not fit are
+// left out.
 func tabLabels(x, w int) []tabLabel {
+	for _, short := range []bool{false, true} {
+		out := layoutTabs(x, w, short)
+		if len(out) == tabCount || short {
+			return out
+		}
+	}
+	return nil
+}
+
+// layoutTabs places the labels left to right, stopping at the first that does
+// not fit.
+func layoutTabs(x, w int, short bool) []tabLabel {
 	var out []tabLabel
 	cx := x + 2
 	for i := range tabCount {
-		label := " " + tabName(i) + " "
+		name := []rune(tabName(i))
+		if short && len(name) > 3 {
+			name = name[:3]
+		}
+		label := " " + string(name) + " "
 		n := len([]rune(label))
 		if cx+n > x+w-2 {
 			break

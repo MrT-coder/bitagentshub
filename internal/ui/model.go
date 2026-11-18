@@ -674,6 +674,10 @@ func (m Model) footer() string {
 	if m.layout.Needed > m.layout.H {
 		return i18n.T("Some desks are off screen; scroll the floor with the wheel.")
 	}
+	if m.floorW() < narrowW {
+		// A phone has no room for the long hints or the clock.
+		return i18n.T("q quit · enter open · p hub · n new")
+	}
 	keys := i18n.Tf("q quit · ←→ select · enter open · %s station · p hub · t terminal · n new agent", m.keyHint(config.FocusStation))
 	if m.herdr != nil && m.herdrSeen && m.herdrErr == nil {
 		// herdr is optional: it shows up only once it answers.
