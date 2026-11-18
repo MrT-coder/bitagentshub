@@ -1066,3 +1066,28 @@ func TestTheFishInTheHeaderNeverPushesItPastTheTerminal(t *testing.T) {
 		}
 	}
 }
+
+func TestOnAPhoneWidthTheWindowShowsOnlyTheFocusedPaneAndFillsTheFloor(t *testing.T) {
+	m, _, rec := twoAgentOffice(t)
+	m = update(m, tea.WindowSizeMsg{Width: 44, Height: 30})
+	m = press(m, key("enter"))
+	m = press(m, key("f3"))
+	shell := rec.last()
+	if v := view(m); !strings.Contains(v, "TERM pwsh") || strings.Contains(v, "TERM herdr") {
+		t.Fatalf("a narrow window should show only the focused terminal:\n%s", v)
+	}
+	if w, h := shell.Size(); w != m.floorW()-2 || h != m.floorH()-2 {
+		t.Errorf("the focused pane should fill the floor: %dx%d, floor %dx%d", w, h, m.floorW(), m.floorH())
+	}
+}
+
+func TestOnADesktopWidthTwoPanesStillShowSideBySide(t *testing.T) {
+	m, _, rec := twoAgentOffice(t)
+	m = update(m, tea.WindowSizeMsg{Width: 120, Height: 40})
+	m = press(m, key("enter"))
+	m = press(m, key("f3"))
+	_ = rec
+	if v := view(m); !strings.Contains(v, "TERM pwsh") || !strings.Contains(v, "TERM herdr") {
+		t.Errorf("a wide window should keep both panes:\n%s", v)
+	}
+}

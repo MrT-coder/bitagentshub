@@ -66,7 +66,7 @@ func (m Model) runAction(action string, n int) (Model, tea.Cmd) {
 	case config.FocusPaneRight:
 		w.focus = min(w.focus+1, len(w.panes)-1)
 	}
-	if w.max {
+	if m.maximized() {
 		m.resizePanes() // the maximized pane follows the focus
 	}
 	return m, nil
