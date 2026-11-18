@@ -573,8 +573,15 @@ func (m Model) View() tea.View {
 	return v
 }
 
+// minFloorW is the narrowest floor the office draws: below it the desks do
+// not fit a row, so the screen only asks for a wider terminal.
+const minFloorW = 30
+
 func (m Model) render() string {
 	w := m.width
+	if w > 0 && m.floorW() < minFloorW {
+		return dimStyle.Render(ansi.Wordwrap(i18n.Tf("Too narrow: widen the terminal to %d columns.", minFloorW+2), w, ""))
+	}
 	if m.snap == nil {
 		return titleStyle.Render("BitAgentsHub") + "\n\n" + dimStyle.Render(truncate(i18n.T("Reading transcripts…"), w))
 	}
