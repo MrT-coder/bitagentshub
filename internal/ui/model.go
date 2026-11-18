@@ -679,7 +679,11 @@ func (m Model) footer() string {
 		return m.notice
 	}
 	if m.layout.Needed > m.layout.H {
-		return i18n.T("Some desks are off screen; scroll the floor with the wheel.")
+		long := i18n.T("Some desks are off screen; scroll the floor with the wheel.")
+		if len([]rune(long)) > m.width {
+			return i18n.T("Desks off screen: scroll with the wheel.")
+		}
+		return long
 	}
 	if m.floorW() < narrowW {
 		// A phone has no room for the long hints or the clock.
