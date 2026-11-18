@@ -40,6 +40,15 @@ seconds from `.git` itself; `git` runs only when a commit, checkout, fetch
 or push moved a ref, and the arrows need it on the PATH and an upstream
 branch.
 
+**On a phone or a narrow terminal** (Termux and the like) the office adapts
+from about 62 columns down: an agent window opens maximized, showing only the
+focused pane; the hub tabs shrink to three letters when their names do not fit,
+and the usage tab shows each station's `today/session` totals in place of its
+bars; the footer and the picker and window hints keep only the main keys. Below
+32 columns the office draws nothing but a request for a wider terminal. The
+wheel, clicks and keys work as everywhere else; 44 columns by 24 rows is
+comfortable.
+
 Only agents that are running appear: the ones the office starts itself
 (`n`), and, when [herdr](#herdr-integration-optional) runs, the ones in its
 panes. An agent started in another terminal does not appear. A session that
