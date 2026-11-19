@@ -3,6 +3,19 @@
 Notable changes to BitAgentsHub, newest first. The office shows this file
 in the hub's About tab, so every release adds its section here.
 
+## v0.7.0 (2026-11-18)
+
+- The mouse works everywhere: click a hub tab to open it, click outside the
+  hub or the picker to close it, pick a folder or a settings row with a
+  click (click the selected row again to act), and scroll the about, usage
+  and settings tabs, the picker and a floor too short for its desks with
+  the wheel.
+- The office fits a phone or a narrow terminal (about 44 columns, such as
+  Termux over SSH): agent windows open maximized, hub tabs shorten to three
+  letters, the usage tab shows `today/session` totals instead of bars, the
+  footer and hints keep only the main keys, and below 32 columns it asks for
+  a wider terminal.
+
 ## v0.6.0 (2026-10-23)
 
 - A supervision clock paces your breaks with nothing to start: it counts
