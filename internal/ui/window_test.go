@@ -1066,3 +1066,46 @@ func TestTheFishInTheHeaderNeverPushesItPastTheTerminal(t *testing.T) {
 		}
 	}
 }
+
+func TestOnAPhoneWidthTheWindowShowsOnlyTheFocusedPaneAndFillsTheFloor(t *testing.T) {
+	m, _, rec := twoAgentOffice(t)
+	m = update(m, tea.WindowSizeMsg{Width: 44, Height: 30})
+	m = press(m, key("enter"))
+	m = press(m, key("f3"))
+	shell := rec.last()
+	if v := view(m); !strings.Contains(v, "TERM pwsh") || strings.Contains(v, "TERM herdr") {
+		t.Fatalf("a narrow window should show only the focused terminal:\n%s", v)
+	}
+	if w, h := shell.Size(); w != m.floorW()-2 || h != m.floorH()-2 {
+		t.Errorf("the focused pane should fill the floor: %dx%d, floor %dx%d", w, h, m.floorW(), m.floorH())
+	}
+}
+
+func TestOnADesktopWidthTwoPanesStillShowSideBySide(t *testing.T) {
+	m, _, rec := twoAgentOffice(t)
+	m = update(m, tea.WindowSizeMsg{Width: 120, Height: 40})
+	m = press(m, key("enter"))
+	m = press(m, key("f3"))
+	_ = rec
+	if v := view(m); !strings.Contains(v, "TERM pwsh") || !strings.Contains(v, "TERM herdr") {
+		t.Errorf("a wide window should keep both panes:\n%s", v)
+	}
+}
+
+func TestOnAPhoneWidthTheHintsFitTheirBoxes(t *testing.T) {
+	m, _, _ := twoAgentOffice(t)
+	m = update(m, tea.WindowSizeMsg{Width: 44, Height: 24})
+	if f := m.footer(); len([]rune(f)) > m.width || !strings.Contains(f, "scroll") {
+		t.Errorf("the off screen hint should fit %d columns and say to scroll: %q", m.width, f)
+	}
+	m = press(m, key("n"))
+	if v := view(m); !strings.Contains(v, "esc") {
+		t.Errorf("the picker footer is cut before esc:\n%s", v)
+	}
+	m = press(m, key("esc"))
+	m = press(m, key("enter"))
+	h := m.windowHints()
+	if room := m.floorW() - 4; len([]rune(h))+2 > room || !strings.Contains(h, "close") {
+		t.Errorf("window hints %q (%d columns) do not fit %d with their padding", h, len([]rune(h)), room)
+	}
+}

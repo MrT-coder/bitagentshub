@@ -66,7 +66,7 @@ func (m Model) runAction(action string, n int) (Model, tea.Cmd) {
 	case config.FocusPaneRight:
 		w.focus = min(w.focus+1, len(w.panes)-1)
 	}
-	if w.max {
+	if m.maximized() {
 		m.resizePanes() // the maximized pane follows the focus
 	}
 	return m, nil
@@ -118,12 +118,19 @@ func (m Model) keyHint(action string) string {
 // after the prefix, grouped behind it. Settings lists every key.
 func (m Model) windowHints() string {
 	var after []string
-	for _, a := range []struct{ action, label string }{
-		{config.CloseWindow, i18n.T("close")},
-		{config.ToggleMaximize, i18n.T("maximize")},
-		{config.OpenBoard, i18n.T("board")},
-		{config.NewAgent, i18n.T("new agent")},
+	narrow := m.floorW() < narrowW // a phone: the window is always maximized
+	for _, a := range []struct {
+		action, label string
+		wide          bool // left out on a narrow floor
+	}{
+		{config.CloseWindow, i18n.T("close"), false},
+		{config.ToggleMaximize, i18n.T("maximize"), true},
+		{config.OpenBoard, i18n.T("board"), false},
+		{config.NewAgent, i18n.T("new agent"), true},
 	} {
+		if narrow && a.wide {
+			continue
+		}
 		for _, k := range m.keys.Keys(a.action) {
 			if rest, ok := strings.CutPrefix(k, "prefix+"); ok {
 				after = append(after, rest+" "+a.label)
@@ -133,6 +140,9 @@ func (m Model) windowHints() string {
 	}
 	if len(after) == 0 {
 		return ""
+	}
+	if narrow {
+		return m.keys.Prefix + " " + strings.Join(after, " · ")
 	}
 	return m.keys.Prefix + i18n.T(" then: ") + strings.Join(after, " · ")
 }

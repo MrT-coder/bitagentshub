@@ -237,6 +237,9 @@ func (m Model) drawPicker(buf *screen.Buffer) {
 	x, y, w, h, first, rows := m.pickerFrame()
 	p := m.picker
 	footer := i18n.Tf(" ↑↓ choose · enter start %s · ctrl+t terminal · esc close ", m.agentCmd[0])
+	if m.floorW() < narrowW {
+		footer = i18n.T(" ↑↓ · enter start · esc ")
+	}
 	if p.status != "" {
 		footer = " " + p.status + " "
 	}

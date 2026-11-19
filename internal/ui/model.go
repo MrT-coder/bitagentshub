@@ -573,8 +573,15 @@ func (m Model) View() tea.View {
 	return v
 }
 
+// minFloorW is the narrowest floor the office draws: below it the desks do
+// not fit a row, so the screen only asks for a wider terminal.
+const minFloorW = 30
+
 func (m Model) render() string {
 	w := m.width
+	if w > 0 && m.floorW() < minFloorW {
+		return dimStyle.Render(ansi.Wordwrap(i18n.Tf("Too narrow: widen the terminal to %d columns.", minFloorW+2), w, ""))
+	}
 	if m.snap == nil {
 		return titleStyle.Render("BitAgentsHub") + "\n\n" + dimStyle.Render(truncate(i18n.T("Reading transcripts…"), w))
 	}
@@ -672,7 +679,15 @@ func (m Model) footer() string {
 		return m.notice
 	}
 	if m.layout.Needed > m.layout.H {
-		return i18n.T("Some desks are off screen; scroll the floor with the wheel.")
+		long := i18n.T("Some desks are off screen; scroll the floor with the wheel.")
+		if len([]rune(long)) > m.width {
+			return i18n.T("Desks off screen: scroll with the wheel.")
+		}
+		return long
+	}
+	if m.floorW() < narrowW {
+		// A phone has no room for the long hints or the clock.
+		return i18n.T("q quit · enter open · p hub · n new")
 	}
 	keys := i18n.Tf("q quit · ←→ select · enter open · %s station · p hub · t terminal · n new agent", m.keyHint(config.FocusStation))
 	if m.herdr != nil && m.herdrSeen && m.herdrErr == nil {

@@ -83,3 +83,21 @@ func TestView_NoLineExceedsTheTerminalWidth(t *testing.T) {
 		}
 	}
 }
+
+func TestBelowTheMinimumWidthTheOfficeAsksForAWiderTerminal(t *testing.T) {
+	m := update(New(nil), tea.WindowSizeMsg{Width: 28, Height: 20})
+	m = update(m, snapshotMsg(claude.Snapshot{Files: 3}))
+	v := plain(m.render())
+	if !strings.Contains(strings.Join(strings.Fields(v), " "), "widen the terminal") { // the message wraps
+		t.Errorf("a too narrow terminal should say so:\n%s", v)
+	}
+	for _, line := range strings.Split(v, "\n") {
+		if n := len([]rune(line)); n > m.width {
+			t.Errorf("line of %d columns on a %d column screen: %q", n, m.width, line)
+		}
+	}
+	m = update(m, tea.WindowSizeMsg{Width: 32, Height: 20})
+	if v := plain(m.render()); strings.Contains(v, "widen the terminal") {
+		t.Errorf("at the minimum width the office should draw:\n%s", v)
+	}
+}

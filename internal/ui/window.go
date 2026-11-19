@@ -778,11 +778,21 @@ func modalText() screen.Style   { c := office.UI(); return screen.Fg(c.Text).Wit
 func modalDim() screen.Style    { return office.Dim.WithBg(modalBg()) }
 func modalBorder() screen.Style { c := office.UI(); return screen.Fg(c.Accent).WithBg(c.Bg) }
 
+// narrowW is the floor width below which side-by-side panes would be too
+// thin to work in (a phone terminal): the window is then always maximized.
+const narrowW = 60
+
+// maximized reports whether the window fills the floor, by choice (z, F2) or
+// because the floor is too narrow for panes beside each other.
+func (m Model) maximized() bool {
+	return m.win != nil && (m.win.max || m.floorW() < narrowW)
+}
+
 // modalRect is the window: centered with office visible around it, or the
 // whole floor when maximized.
 func (m Model) modalRect() (x, y, w, h int) {
 	fw, fh := m.floorW(), m.floorH()
-	if m.win != nil && m.win.max {
+	if m.maximized() {
 		return 0, 0, fw, fh
 	}
 	w = min(max(fw-8, 20), fw)
@@ -800,7 +810,7 @@ func (m Model) paneRects() []rect {
 		n = max(1, len(m.win.panes))
 	}
 	rects := make([]rect, n)
-	if m.win != nil && m.win.max {
+	if m.maximized() {
 		rects[m.win.focus] = rect{x + 1, y + 1, max(1, w-2), max(1, h-2)}
 		return rects
 	}
@@ -897,7 +907,7 @@ func (m Model) drawWindow(buf *screen.Buffer) {
 	}
 	box(buf, x, y, w, h, "", footer)
 	titleW := func(r rect) int { return max(0, r.w-2) }
-	if win.max {
+	if m.maximized() {
 		// A maximized pane is marked in the top right corner, as in herdr.
 		const mark = " z "
 		buf.Text(x+w-2-len(mark), y, mark, modalBorder())
@@ -914,7 +924,7 @@ func (m Model) drawWindow(buf *screen.Buffer) {
 			titleStyle.Reverse, titleStyle.Bold = true, true
 		}
 		buf.Text(r.x+1, y, ansi.Truncate(m.paneTitle(), titleW(r), "…"), titleStyle)
-		if i > 0 && !win.max {
+		if i > 0 && !m.maximized() {
 			for j := 0; j < r.h; j++ {
 				buf.Text(r.x-1, r.y+j, "│", modalBorder())
 			}

@@ -74,6 +74,10 @@ func (m Model) drawUsage(buf *screen.Buffer) {
 const (
 	usageLabelW = 28
 	usageNumW   = 6
+	// usageFullW is the inside width a station row needs for its label, both
+	// numbers and both bars of the shortest length; narrower rows show only
+	// the two totals.
+	usageFullW = 64
 )
 
 // usageRows are the rows of the usage tab, top to bottom.
@@ -105,6 +109,14 @@ func (m Model) usageRows() []usageRow {
 			label = fmt.Sprintf("%d %s", n+1, label)
 		}
 		rows = append(rows, func(buf *screen.Buffer, x, y, inner int) {
+			if inner < usageFullW {
+				// No room for bars: the two totals, today / session.
+				nums := office.FmtTokens(a.Today.Counted()) + "/" + office.FmtTokens(a.Session.Counted())
+				lw := max(4, inner-len([]rune(nums))-1)
+				lx := buf.Text(x, y, pad(truncate(label, lw), lw+1), screen.Style{Fg: office.AgentColor(a.ID), HasFg: true, Bold: true})
+				buf.Text(lx, y, truncate(nums, max(0, x+inner-lx)), modalText())
+				return
+			}
 			barW := usageBarW(inner)
 			lx := buf.Text(x, y, pad(truncate(label, usageLabelW), usageLabelW), screen.Style{Fg: office.AgentColor(a.ID), HasFg: true, Bold: true})
 			lx = buf.Text(lx, y, i18n.T(" today "), modalDim())
@@ -135,9 +147,13 @@ func (m Model) usageRows() []usageRow {
 			}
 			rows = append(rows, func(buf *screen.Buffer, x, y, inner int) {
 				barW := usageBarW(inner)
-				lx := buf.Text(x, y, pad(r.Tool+" "+win.Name, 16), modalText())
+				tail := i18n.Tf(" %3.0f%% · resets %s", win.UsedPercent, resetTime(win.ResetsAt))
+				// The label gives up its padding when the row would run past the
+				// window on a narrow screen.
+				lw := max(6, min(16, inner-barW-len([]rune(tail))))
+				lx := buf.Text(x, y, pad(truncate(r.Tool+" "+win.Name, lw), lw), modalText())
 				lx = bar(buf, lx, y, barW, int64(win.UsedPercent*10), 1000, style)
-				buf.Text(lx, y, i18n.Tf(" %3.0f%% · resets %s", win.UsedPercent, resetTime(win.ResetsAt)), modalText())
+				buf.Text(lx, y, tail, modalText())
 			})
 		}
 	}
