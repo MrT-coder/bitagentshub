@@ -91,7 +91,9 @@ type Model struct {
 	sources     []usage.Source
 	hubOpen     bool // the pet's hub is open on hubTab
 	hubTab      int
-	aboutScroll int
+	aboutScroll int // first changelog line the about tab shows
+	usageScroll int // first row the usage tab shows
+	floorScroll int // first row of the floor plan shown, when it does not fit
 	changelog   string
 	updateCheck func() string // nil when updates are not looked for
 	newer       string        // a newer release's tag, once the check finds one
@@ -334,7 +336,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.restInput()
 		if m.hubOpen {
-			return m, nil // the hub is on top
+			return m.hubMouse(msg) // the hub is on top
 		}
 		switch msg.(type) {
 		case tea.MouseClickMsg, tea.MouseWheelMsg:
@@ -344,17 +346,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m.stripMouse(msg)
 			}
 		}
+		if m.picker != nil {
+			return m.pickerMouse(msg) // the picker is on top of any window
+		}
 		if m.win != nil {
 			return m.windowMouse(msg)
 		}
-		click, ok := msg.(tea.MouseClickMsg)
-		if !ok || click.Button != tea.MouseLeft || m.picker != nil {
-			return m, nil // a modal is on top; clicks behind it are ignored
+		if wh, ok := msg.(tea.MouseWheelMsg); ok {
+			switch wh.Button {
+			case tea.MouseWheelUp:
+				return m.scrollFloor(-wheelStep), nil
+			case tea.MouseWheelDown:
+				return m.scrollFloor(wheelStep), nil
+			}
 		}
-		if office.PetHit(m.layout, click.X-1, click.Y-officeY) {
+		click, ok := msg.(tea.MouseClickMsg)
+		if !ok || click.Button != tea.MouseLeft {
+			return m, nil
+		}
+		fx, fy := click.X-1, click.Y-officeY+m.floorScroll
+		if office.PetHit(m.layout, fx, fy) {
 			return m.openHub(tabPet)
 		}
-		if id, ok := office.HitTest(m.layout, m.crowd, click.X-1, click.Y-officeY); ok {
+		if id, ok := office.HitTest(m.layout, m.crowd, fx, fy); ok {
 			return m.openWindow(id)
 		}
 	case tea.WindowSizeMsg:
@@ -513,6 +527,7 @@ func (m *Model) relayout() {
 	m.relink()
 	agents := m.agents()
 	m.layout = office.Build(agents, m.floorW(), m.floorH())
+	m.floorScroll = clampScroll(m.floorScroll, m.floorRows(), m.floorH())
 	m.crowd.Sync(m.layout, agents)
 	order := office.Order(m.layout)
 	for _, id := range order {
@@ -558,8 +573,15 @@ func (m Model) View() tea.View {
 	return v
 }
 
+// minFloorW is the narrowest floor the office draws: below it the desks do
+// not fit a row, so the screen only asks for a wider terminal.
+const minFloorW = 30
+
 func (m Model) render() string {
 	w := m.width
+	if w > 0 && m.floorW() < minFloorW {
+		return dimStyle.Render(ansi.Wordwrap(i18n.Tf("Too narrow: widen the terminal to %d columns.", minFloorW+2), w, ""))
+	}
 	if m.snap == nil {
 		return titleStyle.Render("BitAgentsHub") + "\n\n" + dimStyle.Render(truncate(i18n.T("Reading transcripts…"), w))
 	}
@@ -592,7 +614,7 @@ func (m Model) render() string {
 
 	fw, fh := m.floorW(), m.floorH()
 	buf := screen.New(fw, fh)
-	office.Draw(buf, m.layout, m.crowd, m.agents(), m.frame, m.selected, m.petState().Mood)
+	m.drawFloor(buf)
 	if len(s.Agents) == 0 {
 		msg := truncate(i18n.T("No agents running. Press n to start one."), fw)
 		buf.Text((fw-len([]rune(msg)))/2, fh/2, msg, office.Dim)
@@ -625,6 +647,30 @@ func (m Model) render() string {
 func (m Model) floorW() int { return max(1, m.width-2) }
 func (m Model) floorH() int { return max(1, m.height-chromeH) }
 
+// floorRows is how many rows the whole floor plan takes; more than floorH
+// when its desks do not fit, and then the floor scrolls.
+func (m Model) floorRows() int { return (max(m.layout.H, m.layout.Needed) + 1) / 2 }
+
+// drawFloor paints the office, scrolled down floorScroll rows when the
+// floor plan is taller than the floor.
+func (m Model) drawFloor(buf *screen.Buffer) {
+	full := buf
+	if rows := m.floorRows(); rows > buf.H {
+		full = screen.New(buf.W, rows)
+	}
+	office.Draw(full, m.layout, m.crowd, m.agents(), m.frame, m.selected, m.petState().Mood)
+	if full != buf {
+		buf.CopyRows(full, m.floorScroll)
+	}
+}
+
+// scrollFloor scrolls the floor by delta rows, between its top and the row
+// where its bottom shows.
+func (m Model) scrollFloor(delta int) Model {
+	m.floorScroll = clampScroll(m.floorScroll+delta, m.floorRows(), m.floorH())
+	return m
+}
+
 func (m Model) footer() string {
 	if m.prefixed {
 		return m.keys.Prefix + i18n.T(" … waiting for a key: 1-9 opens that station")
@@ -633,7 +679,15 @@ func (m Model) footer() string {
 		return m.notice
 	}
 	if m.layout.Needed > m.layout.H {
-		return i18n.T("Some desks are off screen; enlarge the terminal.")
+		long := i18n.T("Some desks are off screen; scroll the floor with the wheel.")
+		if len([]rune(long)) > m.width {
+			return i18n.T("Desks off screen: scroll with the wheel.")
+		}
+		return long
+	}
+	if m.floorW() < narrowW {
+		// A phone has no room for the long hints or the clock.
+		return i18n.T("q quit · enter open · p hub · n new")
 	}
 	keys := i18n.Tf("q quit · ←→ select · enter open · %s station · p hub · t terminal · n new agent", m.keyHint(config.FocusStation))
 	if m.herdr != nil && m.herdrSeen && m.herdrErr == nil {
