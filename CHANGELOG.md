@@ -3,6 +3,21 @@
 Notable changes to BitAgentsHub, newest first. The office shows this file
 in the hub's About tab, so every release adds its section here.
 
+## v0.9.0 (2026-11-23)
+
+- The PRs tab shows **every** open pull request, not only those that involve
+  you: a new group, **Other open pull requests**, holds the rest of the open
+  PRs of the filter's organizations and repositories (with no filter, those
+  that involve you). Only a review asked of you or your teams raises the
+  star.
+- A **PRs** chip sits in the pet's corner of the office floor; a click on it,
+  or on the star, opens the PRs tab.
+- The office **installs a newer release as it opens**, before drawing
+  anything, and starts the new version in its place; if the upgrade fails the
+  current version starts and says why. `[updates] auto = false` keeps the
+  upgrade manual (`bah upgrade`); it needs `[updates] check` on. Install this
+  release with `bah upgrade`: older versions do not upgrade by themselves.
+
 ## v0.8.0 (2026-11-23)
 
 - A **PRs** tab in the hub is a pull request inbox: your reviews and your
