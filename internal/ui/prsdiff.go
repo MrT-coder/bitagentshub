@@ -29,7 +29,8 @@ type prsDiffMsg struct {
 	repo   string
 	number int
 	files  []prs.FileDiff
-	sha    string // the head commit the diff was read at; "" when unknown
+	sha    string    // the head commit the diff was read at; "" when unknown
+	info   *prs.Info // the pull request as it is now; nil when it could not be read
 	err    error
 }
 
@@ -88,12 +89,16 @@ func (m Model) prsOpenDiff() (Model, tea.Cmd) {
 		ctx, cancel := context.WithTimeout(context.Background(), prsReadTime)
 		defer cancel()
 		files, err := prs.Diff(ctx, run, pr.Repo, pr.Number)
+		var info *prs.Info
 		sha := ""
 		if err == nil {
-			// Only a line comment needs it, and the diff reads fine without.
-			sha, _ = prs.HeadSHA(ctx, run, pr.Repo, pr.Number)
+			// The diff reads fine without it; a line comment needs the commit
+			// and a review needs to know the pull request is still open.
+			if in, ierr := prs.ReadInfo(ctx, run, pr.Repo, pr.Number); ierr == nil {
+				info, sha = &in, in.SHA
+			}
 		}
-		return prsDiffMsg{repo: pr.Repo, number: pr.Number, files: files, sha: sha, err: err}
+		return prsDiffMsg{repo: pr.Repo, number: pr.Number, files: files, sha: sha, info: info, err: err}
 	}
 }
 
@@ -108,6 +113,9 @@ func (m Model) prsDiffRead(msg prsDiffMsg) Model {
 	d.loading, d.err = false, msg.err
 	if msg.err == nil {
 		d.files, d.sha = msg.files, msg.sha
+		if in := msg.info; in != nil {
+			d.pr.State, d.pr.Draft, d.pr.Approvers, d.pr.ChangesBy = in.State, in.Draft, in.Approvers, in.ChangesBy
+		}
 		d.rows = diffRows(msg.files)
 	}
 	return m
@@ -219,8 +227,16 @@ func (m Model) prsDiffKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case "c":
 		return m.diffComment(), nil
 	case "a":
+		if why := m.reviewBlocked(actApprove); why != "" {
+			d.msg = why
+			return m, nil
+		}
 		return m.diffStart(actApprove), nil
 	case "x":
+		if why := m.reviewBlocked(actChanges); why != "" {
+			d.msg = why
+			return m, nil
+		}
 		return m.diffStart(actChanges), nil
 	case "m":
 		return m.diffStart(actNote), nil
@@ -272,7 +288,12 @@ func (m Model) drawDiff(buf *screen.Buffer) {
 
 	title := modalText()
 	title.Bold = true
-	buf.Text(x+2, y+1, truncate(cleanText(fmt.Sprintf("%s#%d  %s  @%s", d.pr.Repo, d.pr.Number, d.pr.Title, d.pr.Author)), inner), title)
+	status := prStatus(d.pr)
+	room0 := max(0, inner-len([]rune(status))-2)
+	buf.Text(x+2, y+1, truncate(cleanText(fmt.Sprintf("%s#%d  %s  @%s", d.pr.Repo, d.pr.Number, d.pr.Title, d.pr.Author)), room0), title)
+	if status != "" {
+		buf.Text(x+2+inner-len([]rune(status)), y+1, status, modalDim())
+	}
 
 	switch {
 	case d.loading:

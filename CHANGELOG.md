@@ -3,6 +3,15 @@
 Notable changes to BitAgentsHub, newest first. The office shows this file
 in the hub's About tab, so every release adds its section here.
 
+## v0.9.2 (2026-11-23)
+
+- The PRs list and the diff show who **approved** (`✓ ana`) or asked for
+  changes (`✗ cy`) and the pull request's state (`draft`, `merged`,
+  `closed`). Opening a diff reads the pull request again, so one that merged
+  or closed meanwhile says so and takes no approval.
+- Your own pull request no longer offers to approve it or request changes,
+  and `a` and `x` on it say why.
+
 ## v0.9.1 (2026-11-23)
 
 - The **PRs** chip and the star moved from the pet's corner to the top-right

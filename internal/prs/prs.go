@@ -79,6 +79,12 @@ type PR struct {
 	// Checks is the state of the latest commit's checks: SUCCESS, FAILURE,
 	// ERROR, PENDING, EXPECTED, or empty when there are none.
 	Checks string
+	// State is OPEN, MERGED or CLOSED; a list read holds open ones only, but
+	// one that merged since still shows until the next reading.
+	State string
+	// Approvers and ChangesBy are the logins whose latest review approves
+	// or asks for changes.
+	Approvers, ChangesBy []string
 	// Direct is true when the review is asked of you, Team when only of a
 	// team of yours.
 	Direct, Team bool
@@ -128,16 +134,21 @@ func (in Inbox) Pending() int {
 }
 
 const query = `query($q:String!){viewer{login} search(query:$q,type:ISSUE,first:50){nodes{... on PullRequest{
-number title url isDraft updatedAt reviewDecision
+number title url isDraft state updatedAt reviewDecision
+latestReviews(first:20){nodes{state author{login}}}
 repository{nameWithOwner} author{login}
 reviewRequests(first:30){nodes{requestedReviewer{... on User{login} ... on Team{slug}}}}
 commits(last:1){nodes{commit{statusCheckRollup{state}}}}}}}}`
 
 type node struct {
-	Number         int       `json:"number"`
-	Title          string    `json:"title"`
-	URL            string    `json:"url"`
-	IsDraft        bool      `json:"isDraft"`
+	Number        int    `json:"number"`
+	Title         string `json:"title"`
+	URL           string `json:"url"`
+	IsDraft       bool   `json:"isDraft"`
+	State         string `json:"state"`
+	LatestReviews struct {
+		Nodes []reviewNode `json:"nodes"`
+	} `json:"latestReviews"`
 	UpdatedAt      time.Time `json:"updatedAt"`
 	ReviewDecision string    `json:"reviewDecision"`
 	Repository     struct {
@@ -163,6 +174,29 @@ type node struct {
 			} `json:"commit"`
 		} `json:"nodes"`
 	} `json:"commits"`
+}
+
+// reviewNode is the latest review of one reviewer.
+type reviewNode struct {
+	State  string `json:"state"`
+	Author struct {
+		Login string `json:"login"`
+	} `json:"author"`
+}
+
+// sortReviews splits the latest reviews into who approved and who asked
+// for changes.
+func sortReviews(nodes []reviewNode) (approvers, changes []string) {
+	for _, r := range nodes {
+		switch {
+		case r.Author.Login == "":
+		case r.State == "APPROVED":
+			approvers = append(approvers, r.Author.Login)
+		case r.State == "CHANGES_REQUESTED":
+			changes = append(changes, r.Author.Login)
+		}
+	}
+	return approvers, changes
 }
 
 // search runs one search and returns the viewer and the pull requests.
@@ -192,8 +226,9 @@ func search(ctx context.Context, run Runner, q string) (string, []PR, error) {
 		}
 		p := PR{
 			Repo: n.Repository.NameWithOwner, Number: n.Number, Title: n.Title, Author: n.Author.Login,
-			URL: n.URL, Draft: n.IsDraft, Updated: n.UpdatedAt, Decision: n.ReviewDecision,
+			URL: n.URL, Draft: n.IsDraft, Updated: n.UpdatedAt, Decision: n.ReviewDecision, State: n.State,
 		}
+		p.Approvers, p.ChangesBy = sortReviews(n.LatestReviews.Nodes)
 		if len(n.Commits.Nodes) > 0 && n.Commits.Nodes[0].Commit.StatusCheckRollup != nil {
 			p.Checks = n.Commits.Nodes[0].Commit.StatusCheckRollup.State
 		}
