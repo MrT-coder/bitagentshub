@@ -362,6 +362,7 @@ func (m Model) closeShell() Model {
 		delete(m.terms, p.key)
 	}
 	m.forgetShell(p.key)
+	m.dropTree(p.key)
 	return m.removePane(m.win.focus)
 }
 
@@ -399,6 +400,7 @@ func (m Model) endPane(key string) Model {
 		delete(m.terms, key)
 		if hs.shell {
 			m.forgetShell(key)
+			m.dropTree(key)
 		}
 	}
 	if m.win != nil {
@@ -740,6 +742,7 @@ func (m Model) CloseAll() {
 		}
 		hs.term.Close()
 	}
+	m.removeTrees() // after the editors ended, so nothing holds the files
 	if m.daemon != nil {
 		m.daemon.Close()
 	}

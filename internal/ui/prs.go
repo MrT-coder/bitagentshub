@@ -57,6 +57,12 @@ type prsState struct {
 	saveErr string // why the last filter could not be saved
 
 	diff *diffState // the diff of a pull request, shown instead of the list
+
+	// Reading a file of a pull request in the editor.
+	openTree   func(ctx context.Context, repo, sha, path string) (prs.Tree, error)
+	removeTree func(prs.Tree)
+	editor     func() string       // the read-only editor, "" when there is none
+	trees      map[string]prs.Tree // the folder of each editor terminal, by its key
 }
 
 // prsDraftMax bounds the filter being typed.
@@ -69,7 +75,10 @@ func (m Model) WithPRs(cfg config.PRs, run prs.Runner, path string) Model {
 	if cfg.Refresh <= 0 {
 		cfg.Refresh = 2 * time.Minute
 	}
-	m.pulls = &prsState{cfg: cfg, run: run, path: path}
+	m.pulls = &prsState{cfg: cfg, run: run, path: path, removeTree: prs.RemoveTree, editor: defaultEditor, trees: map[string]prs.Tree{},
+		openTree: func(ctx context.Context, repo, sha, path string) (prs.Tree, error) {
+			return prs.FetchFile(ctx, run, repo, sha, path)
+		}}
 	return m
 }
 

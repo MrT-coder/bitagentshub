@@ -16,6 +16,7 @@ import (
 // reach GitHub.
 type recGH struct {
 	list      prs.Runner
+	diff      string // what pr diff answers; the sample diff when empty
 	sha       string // the head commit; "" makes reading it fail
 	sent      [][]string
 	errReview error
@@ -25,6 +26,9 @@ type recGH struct {
 func (g *recGH) run(ctx context.Context, args ...string) ([]byte, error) {
 	switch {
 	case args[0] == "pr" && args[1] == "diff":
+		if g.diff != "" {
+			return []byte(g.diff), nil
+		}
 		return []byte(sampleUIDiff), nil
 	case args[0] == "pr" && args[1] == "view":
 		if g.sha == "" {
