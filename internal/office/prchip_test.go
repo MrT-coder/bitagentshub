@@ -7,44 +7,66 @@ import (
 	"github.com/MrT-coder/bitagentshub/internal/screen"
 )
 
-func TestDrawPRChipLabelsTheCornerAndSitsRightOfTheStar(t *testing.T) {
+func shelf(t *testing.T, l Layout) Item {
+	t.Helper()
+	for _, it := range l.Items {
+		if it.Kind == "bookshelf" {
+			return it
+		}
+	}
+	t.Fatal("the office has no bookshelf")
+	return Item{}
+}
+
+func TestTheChipSitsOnTheBookshelfsTopRightCornerRightOfTheStar(t *testing.T) {
 	l := Build(nil, testW, testH)
-	x, y, _, _ := l.PetCells()
+	it := shelf(t, l)
 	buf := screen.New(l.W, l.H/2)
 	DrawPetBadge(buf, l, 100) // the widest star, "★99+"
 	DrawPRChip(buf, l)
-	if got := strings.TrimSpace(buf.Row(y, x, x+20)); got != "★99+  PRs" {
-		t.Errorf("the top row of the corner reads %q, want the star then the chip", got)
+	y := it.Y / 2
+	if got := strings.TrimSpace(buf.Row(y, it.X, it.X+it.W)); got != "★99+  PRs" {
+		t.Errorf("the shelf's top row reads %q, want the star then the chip", got)
+	}
+	if got := buf.Row(y, it.X+it.W-len(prChipLabel), it.X+it.W); got != prChipLabel {
+		t.Errorf("the chip is not flush with the shelf's right edge: %q", got)
 	}
 }
 
-func TestTheChipDoesNotCoverThePetsBubble(t *testing.T) {
+func TestTheChipLeavesThePetsCornerAlone(t *testing.T) {
 	l := Build(nil, testW, testH)
-	x, y, _, _ := l.PetCells()
-	bubbleX := x + 1 + catW - 2
+	x, y, w, h := l.PetCells()
 	buf := screen.New(l.W, l.H/2)
+	DrawPetBadge(buf, l, 5)
 	DrawPRChip(buf, l)
-	if got := buf.Row(y, bubbleX, bubbleX+2); strings.TrimSpace(got) != "" {
-		t.Errorf("the chip reaches the bubble's cells: %q", got)
+	for row := y; row < y+h; row++ {
+		if got := strings.TrimSpace(buf.Row(row, x, x+w)); got != "" {
+			t.Errorf("row %d of the pet's corner reads %q, want it untouched", row, got)
+		}
 	}
 }
 
-func TestPRHitIsTheStarAndTheChipOnTheTopRowOnly(t *testing.T) {
+func TestPRHitIsTheStarAndTheChipOnTheShelfsTopRowOnly(t *testing.T) {
 	l := Build(nil, testW, testH)
-	x, y, _, h := l.PetCells()
+	it := shelf(t, l)
+	y := it.Y / 2
+	cx, _ := l.prAnchor()
 	for _, tc := range []struct {
 		name string
 		x, y int
 		want bool
 	}{
-		{"the star", x + 1, y, true},
-		{"the chip", x + prChipX + 2, y, true},
-		{"left of the star", x, y, false},
-		{"the pet's bubble", x + 1 + catW - 2, y, false},
-		{"the body of the pet", x + prChipX + 2, y + h/2, false},
+		{"the star", cx - prStarGap, y, true},
+		{"the chip", cx + 2, y, true},
+		{"left of the star", cx - prStarGap - 1, y, false},
+		{"under the chip", cx + 2, y + 3, false},
 	} {
 		if got := PRHit(l, tc.x, tc.y); got != tc.want {
 			t.Errorf("%s: PRHit = %v, want %v", tc.name, got, tc.want)
 		}
+	}
+	px, py, _, _ := l.PetCells()
+	if PRHit(l, px+2, py) {
+		t.Error("the pet's corner still opens the PRs window")
 	}
 }
