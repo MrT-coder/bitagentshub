@@ -65,6 +65,7 @@ type Config struct {
 	// release exists, to say so in the header.
 	CheckUpdates bool
 	Rest         Rest
+	PRs          PRs
 }
 
 // Board is the task board: daily notes per project in Dir, opened with
@@ -149,6 +150,7 @@ func Load(path string) (Config, error) {
 		Term  map[string]any `toml:"terminal"`
 		Upd   map[string]any `toml:"updates"`
 		Rest  map[string]any `toml:"rest"`
+		PRs   map[string]any `toml:"prs"`
 	}
 	if path != "" {
 		_, err := toml.DecodeFile(path, &file)
@@ -217,7 +219,11 @@ func Load(path string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("%s: %w", path, err)
 	}
-	return Config{Keys: k, Theme: theme, Palette: palette, Board: b, Language: lang, PetName: pet, Scrollback: lines, CheckUpdates: check, Rest: rst}, nil
+	prs, err := prsSection(file.PRs)
+	if err != nil {
+		return Config{}, fmt.Errorf("%s: %w", path, err)
+	}
+	return Config{Keys: k, Theme: theme, Palette: palette, Board: b, Language: lang, PetName: pet, Scrollback: lines, CheckUpdates: check, Rest: rst, PRs: prs}, nil
 }
 
 // boardSection reads [board]: an absolute folder, since the office runs from
