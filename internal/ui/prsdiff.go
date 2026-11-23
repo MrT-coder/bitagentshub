@@ -214,6 +214,8 @@ func (m Model) prsDiffKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 	d.msg = ""
 	switch msg.String() {
+	case "o":
+		return m.prsOpenFile()
 	case "c":
 		return m.diffComment(), nil
 	case "a":

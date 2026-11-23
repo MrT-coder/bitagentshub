@@ -402,6 +402,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.prsDiffRead(msg), nil
 	case prsActionMsg:
 		return m.prsActed(msg)
+	case prsTreeMsg:
+		return m.prsTreeOpened(msg)
 	case prsFilterMsg:
 		m = m.prsFiltered(msg)
 		if msg.err != nil {

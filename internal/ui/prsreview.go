@@ -52,7 +52,7 @@ type prsActionMsg struct {
 }
 
 // diffReviewKeys is what the diff view offers when it is idle.
-func diffReviewKeys() string { return i18n.T("c comment · a approve · x request changes · m note") }
+func diffReviewKeys() string { return i18n.T("c comment · a approve · x request changes · m note · o nvim") }
 
 // diffStart begins an action: the ones that need text ask for it, an
 // approval goes straight to its confirmation.
@@ -208,7 +208,10 @@ func (m Model) drawDiffPrompt(buf *screen.Buffer, x, y, inner int) {
 	st := modalBorder()
 	switch d.mode {
 	case modeSending:
-		text = i18n.T("Sending…")
+		text = d.msg
+		if text == "" {
+			text = i18n.T("Sending…")
+		}
 	case modeTyping:
 		switch {
 		case d.msg != "":
