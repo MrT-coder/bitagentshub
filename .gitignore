@@ -3,3 +3,5 @@
 .atl/
 dist/
 *.exe.old
+reports/
+research_notes/
