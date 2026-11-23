@@ -87,7 +87,11 @@ var spanish = map[string]string{
 	"Waiting for review or checks (%d)":                                    "Esperando revisión o checks (%d)",
 	"Needs action (%d)":                                                    "Requieren acción (%d)",
 	"Ready to merge (%d)":                                                  "Listos para mergear (%d)",
-	" ←→ tab · ↑↓ select · r refresh · esc close ":                         " ←→ pestaña · ↑↓ elegir · r actualizar · esc cerrar ",
+	" ←→ tab · ↑↓ select · f filter · r refresh · esc close ":              " ←→ pestaña · ↑↓ elegir · f filtrar · r actualizar · esc cerrar ",
+	" type orgs and repos · enter save · esc cancel ":                       " escribe orgs y repos · enter guardar · esc cancelar ",
+	"filter: ":                                                             "filtro: ",
+	"Orgs such as acme, repos such as owner/name. Empty shows every pull request.": "Orgs como acme, repos como owner/name. Vacío muestra todos los pull requests.",
+	"Could not save the filter: %s":                                        "No se pudo guardar el filtro: %s",
 
 	// Hub tabs.
 	"pet":      "mascota",

@@ -98,6 +98,9 @@ func (m Model) hubKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	if m.hubTab == tabPet && m.renaming {
 		return m.renameKey(msg) // every key belongs to the name being typed
 	}
+	if m.prsEditing() {
+		return m.prsEditKey(msg) // every key belongs to the filter being typed
+	}
 	if sw := m.setWin; m.hubTab == tabSettings && sw != nil && (sw.capturing || sw.naming) {
 		m, cmd := m.settingsKey(msg) // every key belongs to the key or name being typed
 		return m.followSettings(), cmd
@@ -156,7 +159,7 @@ func (m Model) hubKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // hubMouse handles the mouse while the hub is open: a click on a tab opens
 // it, a click outside the window closes it, the wheel scrolls the tab.
 func (m Model) hubMouse(msg tea.MouseMsg) (Model, tea.Cmd) {
-	if m.renaming || (m.setWin != nil && (m.setWin.capturing || m.setWin.naming)) {
+	if m.renaming || m.prsEditing() || (m.setWin != nil && (m.setWin.capturing || m.setWin.naming)) {
 		return m, nil // the name or key being typed keeps the hub as it is
 	}
 	switch msg := msg.(type) {
