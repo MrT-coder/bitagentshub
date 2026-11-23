@@ -71,6 +71,24 @@ var spanish = map[string]string{
 	"board":     "tablero",
 	"new agent": "nuevo agente",
 
+	// Pull requests tab.
+	"PRs":           "PRs",
+	"pull requests": "pull requests",
+	"Pull requests are off ([prs] in the config turns them on).":           "Los pull requests están apagados (la sección [prs] de la config los enciende).",
+	"gh is not installed. Get it at https://cli.github.com and press r.":   "gh no está instalado. Descárgalo en https://cli.github.com y presiona r.",
+	"gh is not logged in. Run gh auth login in a terminal and press r.":    "gh no tiene sesión. Ejecuta gh auth login en una terminal y presiona r.",
+	"Loading pull requests…":                                               "Cargando pull requests…",
+	"Could not read pull requests: %s":                                     "No se pudieron leer los pull requests: %s",
+	"Showing: every pull request":                                          "Mostrando: todos los pull requests",
+	"Showing: %s":                                                          "Mostrando: %s",
+	"Needs your review (%d)":                                               "Esperan tu revisión (%d)",
+	"Needs your teams' review (%d)":                                        "Esperan la revisión de tus equipos (%d)",
+	"Your drafts (%d)":                                                     "Tus borradores (%d)",
+	"Waiting for review or checks (%d)":                                    "Esperando revisión o checks (%d)",
+	"Needs action (%d)":                                                    "Requieren acción (%d)",
+	"Ready to merge (%d)":                                                  "Listos para mergear (%d)",
+	" ←→ tab · ↑↓ select · r refresh · esc close ":                         " ←→ pestaña · ↑↓ elegir · r actualizar · esc cerrar ",
+
 	// Hub tabs.
 	"pet":      "mascota",
 	"usage":    "uso",

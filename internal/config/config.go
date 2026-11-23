@@ -28,6 +28,7 @@ const (
 	OpenHub        = "open_hub"      // also `p` on the board: the pet's hub
 	ShowUsage      = "show_usage"    // the hub on its usage tab; also `u` on the board
 	ShowSettings   = "show_settings" // the hub on its settings tab; also `s` on the board
+	ShowPRs        = "show_prs"      // the hub on its pull requests tab; also `r` on the board
 	OpenBoard      = "open_board"    // also `b` on the board
 	NewAgent       = "new_agent"     // also `n` on the board
 )
@@ -46,6 +47,7 @@ var defaults = map[string][]string{
 	OpenHub:        {"prefix+p"},
 	ShowUsage:      {"prefix+u"},
 	ShowSettings:   {"prefix+s"},
+	ShowPRs:        {"prefix+r"},
 	OpenBoard:      {"prefix+b"},
 	NewAgent:       {"prefix+shift+n"},
 }

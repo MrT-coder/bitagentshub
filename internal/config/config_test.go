@@ -41,6 +41,7 @@ func TestDefaultsMatchTheApprovedBindings(t *testing.T) {
 		{"p", true, OpenHub, 0},
 		{"u", true, ShowUsage, 0},
 		{"s", true, ShowSettings, 0},
+		{"r", true, ShowPRs, 0},
 		{"b", true, OpenBoard, 0},
 		{"shift+n", true, NewAgent, 0},
 		{"N", true, NewAgent, 0}, // Bubble Tea reports shift+n by its text

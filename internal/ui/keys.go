@@ -40,6 +40,8 @@ func (m Model) runAction(action string, n int) (Model, tea.Cmd) {
 		return m.openHub(tabUsage)
 	case config.ShowSettings:
 		return m.openHub(tabSettings)
+	case config.ShowPRs:
+		return m.openHub(tabPRs)
 	case config.NewAgent:
 		return m.openPicker() // over the window, which stays open under it
 	}

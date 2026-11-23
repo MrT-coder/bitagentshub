@@ -53,6 +53,8 @@ func TestArrowsGoRoundTheHubTabs(t *testing.T) {
 	m = press(m, key("right"))
 	assertHubTab(t, m, "settings", "Settings are not available here.")
 	m = press(m, key("right"))
+	assertHubTab(t, m, "PRs", "Pull requests are off")
+	m = press(m, key("right"))
 	assertHubTab(t, m, "about", "BitAgentsHub "+version.String(), "MIT License · github.com/MrT-coder/bitagentshub", "Early preview: tested on Windows with Claude Code so far.")
 	m = press(m, key("right"))
 	assertHubTab(t, m, "pet")
@@ -116,16 +118,16 @@ func TestTheHubIsTheOnlyKeyInTheFooterAndTheSettingsKeys(t *testing.T) {
 }
 
 func TestTabLabelsAbbreviateInsteadOfDroppingTabsOnANarrowWindow(t *testing.T) {
-	full := tabLabels(0, 40)
+	full := tabLabels(0, 44)
 	if len(full) != tabCount || full[tabAbout].text != " "+tabName(tabAbout)+" " {
 		t.Fatalf("a wide window should keep the full names: %+v", full)
 	}
-	narrow := tabLabels(0, 28)
+	narrow := tabLabels(0, 33)
 	if len(narrow) != tabCount {
 		t.Fatalf("every tab should stay reachable on a narrow window, got %+v", narrow)
 	}
 	for _, l := range narrow {
-		if l.x+len([]rune(l.text)) > 28-2 {
+		if l.x+len([]rune(l.text)) > 33-2 {
 			t.Errorf("label %q at %d runs past the border", l.text, l.x)
 		}
 	}
