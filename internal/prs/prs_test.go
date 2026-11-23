@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -213,5 +214,36 @@ func TestSetupTellsWhatGHNeeds(t *testing.T) {
 		if got := Setup(context.Background(), run); got != tc.want {
 			t.Errorf("err %v: status = %v, want %v", tc.err, got, tc.want)
 		}
+	}
+}
+
+func TestTheInboxKeepsWhoApprovedAndWhoAskedForChanges(t *testing.T) {
+	node := `{"number":3,"title":"t","state":"OPEN","isDraft":true,"repository":{"nameWithOwner":"a/b"},"author":{"login":"ana"},
+"latestReviews":{"nodes":[{"state":"APPROVED","author":{"login":"bob"}},{"state":"CHANGES_REQUESTED","author":{"login":"cy"}},{"state":"DISMISSED","author":{"login":"dee"}}]}}`
+	run := func(context.Context, ...string) ([]byte, error) {
+		return []byte(`{"data":{"viewer":{"login":"me"},"search":{"nodes":[` + node + `]}}}`), nil
+	}
+	in, err := Load(context.Background(), run, Filter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := in.Group(NeedsTeamReview)[0]
+	if p.State != "OPEN" || !reflect.DeepEqual(p.Approvers, []string{"bob"}) || !reflect.DeepEqual(p.ChangesBy, []string{"cy"}) {
+		t.Errorf("state %q approvers %v changes %v", p.State, p.Approvers, p.ChangesBy)
+	}
+}
+
+func TestReadInfoSaysIfThePullRequestIsStillOpen(t *testing.T) {
+	var got []string
+	run := func(_ context.Context, args ...string) ([]byte, error) {
+		got = args
+		return []byte(`{"state":"MERGED","isDraft":false,"headRefOid":"abc","latestReviews":[{"state":"APPROVED","author":{"login":"bob"}}]}`), nil
+	}
+	in, err := ReadInfo(context.Background(), run, "a/b", 9)
+	if err != nil || in.State != "MERGED" || in.SHA != "abc" || !reflect.DeepEqual(in.Approvers, []string{"bob"}) {
+		t.Errorf("info %+v, err %v", in, err)
+	}
+	if want := []string{"pr", "view", "9", "--repo", "a/b", "--json", "state,isDraft,headRefOid,latestReviews"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("ran %q, want %q", got, want)
 	}
 }

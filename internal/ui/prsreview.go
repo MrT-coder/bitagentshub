@@ -51,8 +51,37 @@ type prsActionMsg struct {
 	err    error
 }
 
-// diffReviewKeys is what the diff view offers when it is idle.
-func diffReviewKeys() string { return i18n.T("c comment · a approve · x request changes · m note · o nvim") }
+// diffReviewKeys is what the diff view offers when it is idle; a review of
+// your own pull request, or of one that is no longer open, is not offered.
+func (m Model) diffReviewKeys() string {
+	if m.reviewBlocked(actApprove) != "" {
+		return i18n.T("c comment · m note · o nvim")
+	}
+	return i18n.T("c comment · a approve · x request changes · m note · o nvim")
+}
+
+// reviewBlocked says why act cannot be sent on the pull request of the diff
+// view, or "" when it can. GitHub refuses to approve or ask changes of your
+// own pull request, and of one that is merged or closed.
+func (m Model) reviewBlocked(act diffAct) string {
+	d := m.pulls.diff
+	if act != actApprove && act != actChanges {
+		return ""
+	}
+	switch d.pr.State {
+	case "MERGED":
+		return i18n.T("This pull request is already merged.")
+	case "CLOSED":
+		return i18n.T("This pull request is closed.")
+	}
+	if v := m.pulls.inbox.Viewer; v != "" && strings.EqualFold(v, d.pr.Author) {
+		if act == actApprove {
+			return i18n.T("You cannot approve your own pull request.")
+		}
+		return i18n.T("You cannot request changes on your own pull request.")
+	}
+	return ""
+}
 
 // diffStart begins an action: the ones that need text ask for it, an
 // approval goes straight to its confirmation.
@@ -238,7 +267,7 @@ func (m Model) drawDiffPrompt(buf *screen.Buffer, x, y, inner int) {
 	default:
 		text, st = d.msg, modalBorder()
 		if text == "" {
-			text, st = diffReviewKeys(), modalDim()
+			text, st = m.diffReviewKeys(), modalDim()
 		}
 	}
 	buf.Text(x, y, truncate(text, inner), st)

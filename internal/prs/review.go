@@ -2,6 +2,7 @@ package prs
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -107,4 +108,34 @@ func HeadSHA(ctx context.Context, run Runner, repo string, n int) (string, error
 		return "", fmt.Errorf("gh pr view %s#%d: no head commit", repo, n)
 	}
 	return sha, nil
+}
+
+// Info is what a pull request is right now: whether it is still open, a
+// draft, who approved it and the commit its diff is of.
+type Info struct {
+	State     string // OPEN, MERGED or CLOSED
+	Draft     bool
+	Approvers []string
+	ChangesBy []string
+	SHA       string
+}
+
+// ReadInfo reads the current state of pull request n of repo.
+func ReadInfo(ctx context.Context, run Runner, repo string, n int) (Info, error) {
+	out, err := run(ctx, "pr", "view", strconv.Itoa(n), "--repo", repo, "--json", "state,isDraft,headRefOid,latestReviews")
+	if err != nil {
+		return Info{}, fmt.Errorf("gh pr view %s#%d: %w", repo, n, err)
+	}
+	var v struct {
+		State         string       `json:"state"`
+		IsDraft       bool         `json:"isDraft"`
+		HeadRefOid    string       `json:"headRefOid"`
+		LatestReviews []reviewNode `json:"latestReviews"`
+	}
+	if err := json.Unmarshal(out, &v); err != nil {
+		return Info{}, fmt.Errorf("gh pr view %s#%d: unreadable answer: %w", repo, n, err)
+	}
+	in := Info{State: v.State, Draft: v.IsDraft, SHA: v.HeadRefOid}
+	in.Approvers, in.ChangesBy = sortReviews(v.LatestReviews)
+	return in, nil
 }
