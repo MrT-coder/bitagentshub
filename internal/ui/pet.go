@@ -34,6 +34,7 @@ func (m Model) petState() pet.State {
 		Board:    m.board.Dir != "",
 		FedToday: m.stars.Today,
 		Eating:   time.Now().Before(m.eatUntil),
+		PRs:      m.prsPending(),
 	}
 	if m.rest != nil {
 		st := m.rest.State()

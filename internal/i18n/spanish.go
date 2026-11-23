@@ -72,6 +72,9 @@ var spanish = map[string]string{
 	"new agent": "nuevo agente",
 
 	// Pull requests tab.
+	" · ★ %d to review":                      " · ★ %d por revisar",
+	"1 pull request waits for your review":   "1 pull request espera tu revisión",
+	"%d pull requests wait for your review":  "%d pull requests esperan tu revisión",
 	"PRs":           "PRs",
 	"pull requests": "pull requests",
 	"Pull requests are off ([prs] in the config turns them on).":           "Los pull requests están apagados (la sección [prs] de la config los enciende).",
