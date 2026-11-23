@@ -90,6 +90,7 @@ var spanish = map[string]string{
 	"Waiting for review or checks (%d)":                                    "Esperando revisión o checks (%d)",
 	"Needs action (%d)":                                                    "Requieren acción (%d)",
 	"Ready to merge (%d)":                                                  "Listos para mergear (%d)",
+	"Other open pull requests (%d)":                                        "Otros pull requests abiertos (%d)",
 	" ←→ tab · ↑↓ select · enter diff · f filter · r refresh · esc close ": " ←→ pestaña · ↑↓ elegir · enter diff · f filtrar · r actualizar · esc cerrar ",
 	"c comment · a approve · x request changes · m note · o nvim":          "c comentar · a aprobar · x pedir cambios · m nota · o nvim",
 	"nvim (or vim) is not installed.":                                      "nvim (o vim) no está instalado.",
