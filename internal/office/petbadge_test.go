@@ -7,9 +7,10 @@ import (
 	"github.com/MrT-coder/bitagentshub/internal/screen"
 )
 
-func TestDrawPetBadgeStarsTheCornerWhileReviewsWait(t *testing.T) {
+func TestDrawPetBadgeStarsTheShelfWhileReviewsWait(t *testing.T) {
 	l := Build(nil, testW, testH)
-	x, y, w, _ := l.PetCells()
+	it := shelf(t, l)
+	x, y, w := it.X, it.Y/2, it.W
 	for _, tc := range []struct {
 		n    int
 		want string
@@ -30,16 +31,5 @@ func TestDrawPetBadgeDrawsNothingWhenNoReviewWaits(t *testing.T) {
 		if row := strings.TrimSpace(buf.Row(y, 0, l.W)); row != "" {
 			t.Fatalf("row %d = %q, want an empty buffer", y, row)
 		}
-	}
-}
-
-func TestTheBadgeDoesNotCoverThePetsBubble(t *testing.T) {
-	l := Build(nil, testW, testH)
-	x, y, _, _ := l.PetCells()
-	bubbleX := x + 1 + catW - 2 // petBubble's column
-	buf := screen.New(l.W, l.H/2)
-	DrawPetBadge(buf, l, 99)
-	if got := buf.Row(y, bubbleX, bubbleX+2); strings.TrimSpace(got) != "" {
-		t.Errorf("the badge reaches the bubble's cells: %q", got)
 	}
 }
