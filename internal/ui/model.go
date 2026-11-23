@@ -609,7 +609,11 @@ func (m Model) render() string {
 
 	var b strings.Builder
 	b.WriteString(titleStyle.Render("BitAgentsHub"))
-	summary := i18n.Tf(" · %d stations · %d working", len(stations), working)
+	summary := ""
+	if n := m.prsPending(); n > 0 {
+		summary = i18n.Tf(" · ★ %d to review", n) // first, so a phone's narrow header keeps it
+	}
+	summary += i18n.Tf(" · %d stations · %d working", len(stations), working)
 	if m.board.Dir != "" {
 		summary += fmt.Sprintf(" · 🐟 %d", m.stars.Total)
 	}
@@ -673,6 +677,7 @@ func (m Model) drawFloor(buf *screen.Buffer) {
 		full = screen.New(buf.W, rows)
 	}
 	office.Draw(full, m.layout, m.crowd, m.agents(), m.frame, m.selected, m.petState().Mood)
+	office.DrawPetBadge(full, m.layout, m.prsPending())
 	if full != buf {
 		buf.CopyRows(full, m.floorScroll)
 	}

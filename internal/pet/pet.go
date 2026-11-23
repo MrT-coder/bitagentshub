@@ -66,6 +66,9 @@ type Telemetry struct {
 	// break; RestDue says a break is due, which tires the pet.
 	Supervised time.Duration
 	RestDue    bool
+	// PRs is how many pull requests wait for the user's review. They do not
+	// change the mood: the office shows them as a star.
+	PRs int
 }
 
 // State is the pet's mood and the reasons behind it, one per line.
@@ -83,6 +86,12 @@ func Read(t Telemetry) State {
 		s.Why = append(s.Why, i18n.T("1 agent waits on a permission prompt"))
 	case t.Blocked > 1:
 		s.Why = append(s.Why, i18n.Tf("%d agents wait on a permission prompt", t.Blocked))
+	}
+	switch {
+	case t.PRs == 1:
+		s.Why = append(s.Why, i18n.T("1 pull request waits for your review"))
+	case t.PRs > 1:
+		s.Why = append(s.Why, i18n.Tf("%d pull requests wait for your review", t.PRs))
 	}
 	switch {
 	case t.Working == 1:

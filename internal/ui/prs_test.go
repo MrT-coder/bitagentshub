@@ -287,3 +287,90 @@ func TestWithoutAConfigFileTheFilterStillAppliesForTheSession(t *testing.T) {
 		t.Errorf("view:\n%s", view(m))
 	}
 }
+
+// loaded is an office whose pull requests were read once, the hub closed.
+func loadedPRs(t *testing.T, run prs.Runner, cfg config.PRs) Model {
+	t.Helper()
+	m := prsOffice(t, cfg, run)
+	return update(m, m.prsPoll(false)())
+}
+
+func TestAStarInTheHeaderCountsTheReviewsThatWaitOnYou(t *testing.T) {
+	run, _ := ghAnswering(prNode("acme/api", 7, "Fix login"), prNode("acme/api", 8, "Add cache"))
+	m := loadedPRs(t, run, prsOn)
+	if !strings.Contains(view(m), "★ 2 to review") {
+		t.Errorf("the header does not show the star:\n%s", view(m))
+	}
+}
+
+func TestTheStarComesFirstSoAPhoneHeaderKeepsIt(t *testing.T) {
+	run, _ := ghAnswering(prNode("acme/api", 7, "Fix login"))
+	m := loadedPRs(t, run, prsOn)
+	m = update(m, tea.WindowSizeMsg{Width: 44, Height: 24})
+	head := strings.Split(view(m), "\n")[0]
+	if !strings.Contains(head, "★ 1 to review") {
+		t.Errorf("the 44-column header lost the star: %q", head)
+	}
+}
+
+func TestNoStarWhileNothingWaitsOnYou(t *testing.T) {
+	run, _ := ghAnswering()
+	m := loadedPRs(t, run, prsOn)
+	if strings.Contains(view(m), "★") {
+		t.Errorf("a star shows although no review waits:\n%s", view(m))
+	}
+}
+
+func TestTheStarGoesAwayOnceTheReviewIsDone(t *testing.T) {
+	run, _ := ghAnswering(prNode("acme/api", 7, "Fix login"))
+	m := loadedPRs(t, run, prsOn)
+	if !strings.Contains(view(m), "★") {
+		t.Fatalf("no star to begin with:\n%s", view(m))
+	}
+	m = update(m, prsMsg{status: prs.Ready, inbox: prs.Inbox{}})
+	if strings.Contains(view(m), "★") {
+		t.Errorf("the star stayed after the review left the inbox:\n%s", view(m))
+	}
+}
+
+func TestAFailedReadKeepsTheStar(t *testing.T) {
+	run, _ := ghAnswering(prNode("acme/api", 7, "Fix login"))
+	m := loadedPRs(t, run, prsOn)
+	m = update(m, prsMsg{status: prs.Ready, err: errors.New("network down")})
+	if !strings.Contains(view(m), "★ 1 to review") {
+		t.Errorf("a network blip hid the star:\n%s", view(m))
+	}
+}
+
+func TestNoStarWhenPullRequestsAreOff(t *testing.T) {
+	run, calls := ghAnswering(prNode("acme/api", 7, "Fix login"))
+	m := prsOffice(t, config.PRs{Enabled: false, Refresh: time.Minute}, run)
+	if cmd := m.prsPoll(false); cmd != nil {
+		t.Error("an office with [prs] off asks gh for pull requests")
+	}
+	// Even a reading that arrives anyway must not raise a star.
+	in, err := prs.Load(context.Background(), run, prs.Filter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m = update(m, prsMsg{status: prs.Ready, inbox: in})
+	if strings.Contains(view(m), "★") || *calls == 0 {
+		t.Errorf("a star shows although [prs] is off:\n%s", view(m))
+	}
+}
+
+func TestThePetTabSaysWhyThereIsAStar(t *testing.T) {
+	run, _ := ghAnswering(prNode("acme/api", 7, "Fix login"), prNode("acme/api", 8, "Add cache"))
+	m := press(loadedPRs(t, run, prsOn), key("p"))
+	if !strings.Contains(view(m), "2 pull requests wait for your review") {
+		t.Errorf("the pet tab does not say why:\n%s", view(m))
+	}
+}
+
+func TestTheStarIsAlsoOnThePetInTheOffice(t *testing.T) {
+	run, _ := ghAnswering(prNode("acme/api", 7, "Fix login"), prNode("acme/api", 8, "Add cache"))
+	m := loadedPRs(t, run, prsOn)
+	if !strings.Contains(view(m), "★2") {
+		t.Errorf("the pet's corner does not show the star with its count:\n%s", view(m))
+	}
+}
