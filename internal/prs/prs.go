@@ -94,12 +94,13 @@ const (
 	Waiting                      // yours, waiting on review or checks
 	NeedsAction                  // yours, with changes requested or failing checks
 	ReadyToMerge                 // yours, approved and green
+	OtherOpen                    // every other open pull request, never asked of you
 	groupCount
 )
 
 func (g Group) String() string {
 	return [...]string{"Needs your review", "Needs your teams' review", "Your drafts",
-		"Waiting for review or checks", "Needs action", "Ready to merge"}[g]
+		"Waiting for review or checks", "Needs action", "Ready to merge", "Other open pull requests"}[g]
 }
 
 // Groups lists the groups in the order the inbox shows them.
@@ -214,10 +215,18 @@ func search(ctx context.Context, run Runner, q string) (string, []PR, error) {
 func Load(ctx context.Context, run Runner, f Filter) (Inbox, error) {
 	var in Inbox
 	seen := map[string]bool{}
-	for _, qualifier := range []string{"review-requested:@me", "author:@me"} {
+	// The last search is every other open pull request: the whole of each
+	// org and repo of the filter, or, with no filter, those that involve you
+	// (a search of all GitHub would mean nothing).
+	for _, qualifier := range []string{"review-requested:@me", "author:@me", ""} {
 		for _, scope := range f.scopes() {
 			q := "is:pr is:open " + qualifier
-			if scope != "" {
+			switch {
+			case qualifier == "" && scope == "":
+				q = "is:pr is:open sort:updated-desc involves:@me"
+			case qualifier == "":
+				q = "is:pr is:open sort:updated-desc " + scope
+			case scope != "":
 				q += " " + scope
 			}
 			viewer, found, err := search(ctx, run, q)
@@ -233,7 +242,12 @@ func Load(ctx context.Context, run Runner, f Filter) (Inbox, error) {
 					continue
 				}
 				seen[key] = true
-				in.add(p, qualifier == "author:@me")
+				switch qualifier {
+				case "":
+					in.groups[OtherOpen] = append(in.groups[OtherOpen], p)
+				default:
+					in.add(p, qualifier == "author:@me")
+				}
 			}
 		}
 	}

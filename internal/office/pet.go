@@ -201,6 +201,26 @@ func DrawPetBadge(buf *screen.Buffer, l Layout, n int) {
 	buf.Text(x+1, y, text, screen.Style{Fg: rgb(0x2e3440), HasFg: true, Bg: rgb(0xebcb8b), HasBg: true, Bold: true})
 }
 
+// The PRs chip sits on the top row of the pet's corner, right of the star
+// and left of the pet's bubble, which starts at column 1+catW-2.
+const (
+	prChipX     = 6
+	prChipLabel = " PRs "
+)
+
+// DrawPRChip paints the "PRs" chip that opens the pull request window.
+func DrawPRChip(buf *screen.Buffer, l Layout) {
+	x, y, _, _ := l.PetCells()
+	buf.Text(x+prChipX, y, prChipLabel, screen.Style{Fg: rgb(0x2e3440), HasFg: true, Bg: rgb(0x81a1c1), HasBg: true, Bold: true})
+}
+
+// PRHit reports whether terminal cell (x, y) of the floor falls on the star
+// or the PRs chip, which both open the pull request window.
+func PRHit(l Layout, x, y int) bool {
+	px, py, _, _ := l.PetCells()
+	return y == py && x >= px+1 && x < px+prChipX+len(prChipLabel)
+}
+
 // PetCells is the pet's corner in terminal cells of the floor.
 func (l Layout) PetCells() (x, y, w, h int) {
 	p := l.Pet

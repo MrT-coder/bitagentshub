@@ -37,21 +37,27 @@ func terminalSection(section map[string]any) (int, error) {
 	return lines, nil
 }
 
-// updatesSection reads [updates]: whether to look for a newer release,
-// which it does unless told not to.
-func updatesSection(section map[string]any) (bool, error) {
-	check := true
+// updatesSection reads [updates]: whether to look for a newer release, and
+// whether to install it as the office opens. Both happen unless told not
+// to, and installing needs the look: with check = false nothing is asked
+// of GitHub, so nothing is installed either.
+func updatesSection(section map[string]any) (check, auto bool, err error) {
+	check, auto = true, true
 	for key, v := range section {
-		if key != "check" {
-			return false, fmt.Errorf("updates.%s: unknown field", key)
+		if key != "check" && key != "auto" {
+			return false, false, fmt.Errorf("updates.%s: unknown field", key)
 		}
 		b, ok := v.(bool)
 		if !ok {
-			return false, fmt.Errorf("updates.check: %v is not true or false", v)
+			return false, false, fmt.Errorf("updates.%s: %v is not true or false", key, v)
 		}
-		check = b
+		if key == "check" {
+			check = b
+		} else {
+			auto = b
+		}
 	}
-	return check, nil
+	return check, auto && check, nil
 }
 
 // uiSection reads [ui]: the office's language.

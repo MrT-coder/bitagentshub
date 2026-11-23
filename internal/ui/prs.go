@@ -138,6 +138,9 @@ func (p *prsState) list() []prs.PR {
 	return out
 }
 
+// prsOn is whether the pull request window is turned on.
+func (m Model) prsOn() bool { return m.pulls != nil && m.pulls.cfg.Enabled }
+
 // Pending is how many pull requests wait for your review, or of your teams.
 func (m Model) prsPending() int {
 	if m.pulls == nil || !m.pulls.cfg.Enabled {
@@ -225,6 +228,8 @@ func prsGroupLabel(g prs.Group, n int) string {
 		return i18n.Tf("Waiting for review or checks (%d)", n)
 	case prs.NeedsAction:
 		return i18n.Tf("Needs action (%d)", n)
+	case prs.OtherOpen:
+		return i18n.Tf("Other open pull requests (%d)", n)
 	}
 	return i18n.Tf("Ready to merge (%d)", n)
 }

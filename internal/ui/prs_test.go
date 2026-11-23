@@ -60,6 +60,31 @@ func TestThePRsTabListsWhatWaitsOnYouByGroup(t *testing.T) {
 	}
 }
 
+func TestTheFloorHasAPRsChipThatOpensThePRsTab(t *testing.T) {
+	run, _ := ghAnswering()
+	m := prsOffice(t, prsOn, run)
+	if !strings.Contains(view(m), "PRs") {
+		t.Fatalf("the floor shows no PRs chip:\n%s", view(m))
+	}
+	x, y, _, _ := m.layout.PetCells()
+	m = press(m, click(1+x+8, officeY+y))
+	if !m.hubOpen || m.hubTab != tabPRs {
+		t.Errorf("a click on the chip left hubOpen=%v tab=%d, want the PRs tab", m.hubOpen, m.hubTab)
+	}
+}
+
+func TestTheChipAndItsClickAreOffWhenPRsAreOff(t *testing.T) {
+	m := prsOffice(t, config.PRs{Enabled: false, Refresh: time.Minute}, nil)
+	if strings.Contains(view(m), " PRs ") {
+		t.Errorf("the chip shows though [prs] is off:\n%s", view(m))
+	}
+	x, y, _, _ := m.layout.PetCells()
+	m = press(m, click(1+x+8, officeY+y))
+	if m.hubOpen && m.hubTab == tabPRs {
+		t.Error("a click on the empty corner opened the PRs tab")
+	}
+}
+
 func TestThePRsTabSaysWhatGHNeeds(t *testing.T) {
 	for _, tc := range []struct {
 		err  error

@@ -106,6 +106,11 @@ func main() {
 	if err != nil {
 		fail(err)
 	}
+	if state, err := stateDir(); err == nil && cfg.AutoUpgrade {
+		if code, took := upgradeAtStart(state); took {
+			os.Exit(code)
+		}
+	}
 	lang := cfg.Language
 	if lang == "" {
 		lang = string(i18n.System())
