@@ -55,6 +55,8 @@ type prsState struct {
 	editing bool   // the filter is being typed in draft
 	draft   string
 	saveErr string // why the last filter could not be saved
+
+	diff *diffState // the diff of a pull request, shown instead of the list
 }
 
 // prsDraftMax bounds the filter being typed.
@@ -181,7 +183,7 @@ func (m Model) prRows() []prRow {
 			if n == p.sel {
 				marker, st.Reverse = "▸ ", true
 			}
-			rows = append(rows, prRow{fmt.Sprintf("%s%s#%d  %s  @%s", marker, pr.Repo, pr.Number, pr.Title, pr.Author), st, n})
+			rows = append(rows, prRow{cleanText(fmt.Sprintf("%s%s#%d  %s  @%s", marker, pr.Repo, pr.Number, pr.Title, pr.Author)), st, n})
 			n++
 		}
 	}
@@ -263,6 +265,8 @@ func (m Model) prsKey(k string) (Model, tea.Cmd) {
 		p.sel = max(0, min(len(p.list())-1, p.sel+1))
 	case "r":
 		return m, m.prsPoll(true)
+	case "enter":
+		return m.prsOpenDiff()
 	case "f":
 		if p.cfg.Enabled {
 			p.editing, p.saveErr = true, ""
@@ -347,6 +351,9 @@ func (m Model) prsClick(y int) Model {
 	if p == nil {
 		return m
 	}
+	if p.diff != nil {
+		return m.diffClick(y)
+	}
 	rows := m.prRows()
 	_, _, _, h := m.hubRect()
 	room := max(1, h-4)
@@ -365,6 +372,9 @@ func (m Model) scrollPRs(delta int) Model {
 	if m.pulls == nil {
 		return m
 	}
+	if m.pulls.diff != nil {
+		return m.diffMove(m.pulls.diff.cur + delta)
+	}
 	_, _, _, h := m.hubRect()
 	m.pulls.scroll = clampScroll(m.pulls.scroll+delta, len(m.prRows()), h-4)
 	return m
@@ -373,9 +383,13 @@ func (m Model) scrollPRs(delta int) Model {
 // drawPRs paints the PRs tab: the inbox groups of GitHub, scrolled with ↑↓
 // and the wheel.
 func (m Model) drawPRs(buf *screen.Buffer) {
+	if m.pulls != nil && m.pulls.diff != nil {
+		m.drawDiff(buf)
+		return
+	}
 	rows := m.prRows()
 	x, y, w, h := hubFrame(buf.W, buf.H, prsW, len(rows)+4)
-	footer := i18n.T(" ←→ tab · ↑↓ select · f filter · r refresh · esc close ")
+	footer := i18n.T(" ←→ tab · ↑↓ select · enter diff · f filter · r refresh · esc close ")
 	if m.prsEditing() {
 		footer = i18n.T(" type orgs and repos · enter save · esc cancel ")
 	}

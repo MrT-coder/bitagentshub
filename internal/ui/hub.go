@@ -101,6 +101,9 @@ func (m Model) hubKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	if m.prsEditing() {
 		return m.prsEditKey(msg) // every key belongs to the filter being typed
 	}
+	if m.prsDiffOpen() {
+		return m.prsDiffKey(msg) // the diff view keeps its keys; esc goes back to the list
+	}
 	if sw := m.setWin; m.hubTab == tabSettings && sw != nil && (sw.capturing || sw.naming) {
 		m, cmd := m.settingsKey(msg) // every key belongs to the key or name being typed
 		return m.followSettings(), cmd
@@ -244,6 +247,9 @@ func (m Model) hubRect() (x, y, w, h int) {
 		x, y, w, h, _ = m.settingsLayout(fw, fh)
 		return x, y, w, h
 	case tabPRs:
+		if m.prsDiffOpen() {
+			return hubFrame(fw, fh, diffW, fh)
+		}
 		return hubFrame(fw, fh, prsW, len(m.prRows())+4)
 	case tabAbout:
 		head, log := m.aboutLines()
