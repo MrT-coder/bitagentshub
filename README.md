@@ -114,6 +114,23 @@ network it says nothing. To stop asking:
 check = false
 ```
 
+**It also installs the release as the office opens**, before anything is
+drawn: `Upgrading bah v0.8.0 to v0.9.0...` on the terminal, then the new
+version starts in its place. Nothing runs in the way of the replacement at
+that moment, and the agents the daemon keeps carry on. If the upgrade
+fails (no network, a bad checksum) the current version starts and says why.
+A `go install` or local build is never replaced. To keep checking but
+upgrade by hand with `bah upgrade`:
+
+```toml
+[updates]
+auto = false
+```
+
+Know that agents started by an older daemon keep running that old code
+until `bah daemon stop`, and a release whose daemon protocol changed makes
+the office say so and run its terminals inside itself until then.
+
 ## Run
 
 ```sh
@@ -473,13 +490,18 @@ The **PRs** tab of the hub is a small pull request inbox, and a star shows in
 the office while a review waits for you. It runs on [`gh`](https://cli.github.com),
 the GitHub CLI, as the account you are logged into (`gh auth login`): the
 office stores no token of its own. Without `gh`, or without a login, the tab
-says what to do. Open it with `r` on the board, `ctrl+a r` anywhere, or a
-click on its tab.
+says what to do. Open it with `r` on the board, `ctrl+a r` anywhere, a
+click on its tab, or a click on the **PRs** chip (or the star) in the pet's
+corner of the office floor.
 
 The tab lists what GitHub's own pull request inbox does, in the same groups:
 **Needs your review**, **Needs your teams' review**, **Your drafts**,
 **Waiting for review or checks**, **Needs action** (changes requested or
-failing checks) and **Ready to merge**. It is read when the tab opens and
+failing checks) and **Ready to merge**, then **Other open pull requests**:
+every other open pull request of the organizations and repositories of the
+filter (with no filter, those that involve you), so a new PR always shows
+even when nobody asked you to review it. Only a review asked of you or of
+your teams raises the star. It is read when the tab opens and
 every two minutes. `↑`/`↓` or a click pick a pull request, `r` reads again,
 `f` edits the filter and `enter` opens the diff.
 
