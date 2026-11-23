@@ -3,6 +3,12 @@
 Notable changes to BitAgentsHub, newest first. The office shows this file
 in the hub's About tab, so every release adds its section here.
 
+## v0.9.1 (2026-11-23)
+
+- The **PRs** chip and the star moved from the pet's corner to the top-right
+  corner of the bookshelf on the office floor; a click on either still opens
+  the PRs tab.
+
 ## v0.9.0 (2026-11-23)
 
 - The PRs tab shows **every** open pull request, not only those that involve
