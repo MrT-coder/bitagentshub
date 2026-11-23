@@ -366,6 +366,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		fx, fy := click.X-1, click.Y-officeY+m.floorScroll
+		if m.prsOn() && office.PRHit(m.layout, fx, fy) {
+			return m.openHub(tabPRs)
+		}
 		if office.PetHit(m.layout, fx, fy) {
 			return m.openHub(tabPet)
 		}
@@ -684,6 +687,9 @@ func (m Model) drawFloor(buf *screen.Buffer) {
 	}
 	office.Draw(full, m.layout, m.crowd, m.agents(), m.frame, m.selected, m.petState().Mood)
 	office.DrawPetBadge(full, m.layout, m.prsPending())
+	if m.prsOn() {
+		office.DrawPRChip(full, m.layout)
+	}
 	if full != buf {
 		buf.CopyRows(full, m.floorScroll)
 	}
