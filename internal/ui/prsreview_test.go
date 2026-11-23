@@ -18,6 +18,8 @@ type recGH struct {
 	list      prs.Runner
 	diff      string // what pr diff answers; the sample diff when empty
 	sha       string // the head commit; "" makes reading it fail
+	state     string // the pull request's state; OPEN when empty
+	reviews   string // the latestReviews as JSON; none when empty
 	sent      [][]string
 	errReview error
 	errAPI    error
@@ -34,7 +36,14 @@ func (g *recGH) run(ctx context.Context, args ...string) ([]byte, error) {
 		if g.sha == "" {
 			return nil, errors.New("no head commit")
 		}
-		return []byte(g.sha + "\n"), nil
+		state, reviews := g.state, g.reviews
+		if state == "" {
+			state = "OPEN"
+		}
+		if reviews == "" {
+			reviews = "[]"
+		}
+		return []byte(`{"state":"` + state + `","isDraft":false,"headRefOid":"` + g.sha + `","latestReviews":` + reviews + `}`), nil
 	case args[0] == "pr" && args[1] == "review":
 		g.sent = append(g.sent, args)
 		return nil, g.errReview
@@ -264,5 +273,61 @@ func TestOnAPhoneTheQuestionAlwaysSaysHowToAnswer(t *testing.T) {
 	m = press(m, key("enter"))
 	if !strings.Contains(view(m), "(y/esc) Post on app.go:2") {
 		t.Errorf("a 44-column question hides how to answer it:\n%s", view(m))
+	}
+}
+
+// ownOffice has the diff open of pull request 7, written by the viewer.
+func ownOffice(t *testing.T, state, reviews string) (Model, *recGH) {
+	t.Helper()
+	node := strings.Replace(prNode("acme/api", 7, "Fix login"), `"login":"ana"`, `"login":"me"`, 1)
+	list, _ := ghAnswering(node)
+	g := &recGH{list: list, sha: "abc123", state: state, reviews: reviews}
+	m := press(prsOffice(t, prsOn, g.run), key("r"))
+	return press(m, key("enter")), g
+}
+
+func TestYouCannotApproveOrRequestChangesOnYourOwnPullRequest(t *testing.T) {
+	for _, tc := range []struct{ key, want string }{
+		{"a", "You cannot approve your own pull request."},
+		{"x", "You cannot request changes on your own pull request."},
+	} {
+		m, g := ownOffice(t, "", "")
+		m = press(m, key(tc.key))
+		v := view(m)
+		if !strings.Contains(v, tc.want) || m.pulls.diff.mode != modeBrowse || len(g.sent) != 0 {
+			t.Errorf("%s: want %q and nothing to confirm (sent %q):\n%s", tc.key, tc.want, g.sent, v)
+		}
+	}
+}
+
+func TestOwnPullRequestsDoNotOfferToApprove(t *testing.T) {
+	m, _ := ownOffice(t, "", "")
+	if v := view(m); strings.Contains(v, "a approve") || !strings.Contains(v, "m note") {
+		t.Errorf("the keys of your own pull request offer an approval:\n%s", v)
+	}
+	m, _ = reviewOffice(t)
+	if !strings.Contains(view(m), "a approve") {
+		t.Errorf("another's pull request does not offer an approval:\n%s", view(m))
+	}
+}
+
+func TestAMergedOrClosedPullRequestTakesNoApproval(t *testing.T) {
+	for state, want := range map[string]string{"MERGED": "already merged", "CLOSED": "is closed"} {
+		m, g := reviewOffice(t)
+		g.state = state
+		m = press(m, key("esc"))
+		m = press(m, key("enter"))
+		m = press(m, key("a"))
+		if v := view(m); !strings.Contains(v, want) || !strings.Contains(strings.ToLower(v), strings.ToLower(state)) || m.pulls.diff.mode != modeBrowse {
+			t.Errorf("%s: the diff does not say so or lets the approval start:\n%s", state, v)
+		}
+	}
+}
+
+func TestTheDiffNamesWhoApprovedAndWhoAskedForChanges(t *testing.T) {
+	m, _ := ownOffice(t, "", `[{"state":"APPROVED","author":{"login":"bob"}},{"state":"CHANGES_REQUESTED","author":{"login":"cy"}},{"state":"COMMENTED","author":{"login":"dee"}}]`)
+	v := view(m)
+	if !strings.Contains(v, "✓ bob") || !strings.Contains(v, "✗ cy") || strings.Contains(v, "dee") {
+		t.Errorf("the diff's title does not list the approvals:\n%s", v)
 	}
 }

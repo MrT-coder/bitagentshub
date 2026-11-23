@@ -195,11 +195,36 @@ func (m Model) prRows() []prRow {
 			if n == p.sel {
 				marker, st.Reverse = "▸ ", true
 			}
-			rows = append(rows, prRow{cleanText(fmt.Sprintf("%s%s#%d  %s  @%s", marker, pr.Repo, pr.Number, pr.Title, pr.Author)), st, n})
+			line := fmt.Sprintf("%s%s#%d  %s  @%s", marker, pr.Repo, pr.Number, pr.Title, pr.Author)
+			if tag := prStatus(pr); tag != "" {
+				line += "  " + tag
+			}
+			rows = append(rows, prRow{cleanText(line), st, n})
 			n++
 		}
 	}
 	return rows
+}
+
+// prStatus is the short state of a pull request: merged, closed or draft,
+// who approved it and who asked for changes.
+func prStatus(pr prs.PR) string {
+	var parts []string
+	switch {
+	case pr.State == "MERGED":
+		parts = append(parts, i18n.T("merged"))
+	case pr.State == "CLOSED":
+		parts = append(parts, i18n.T("closed"))
+	case pr.Draft:
+		parts = append(parts, i18n.T("draft"))
+	}
+	if len(pr.Approvers) > 0 {
+		parts = append(parts, "✓ "+strings.Join(pr.Approvers, ","))
+	}
+	if len(pr.ChangesBy) > 0 {
+		parts = append(parts, "✗ "+strings.Join(pr.ChangesBy, ","))
+	}
+	return strings.Join(parts, " · ")
 }
 
 func prsFilterLine(c config.PRs) string {

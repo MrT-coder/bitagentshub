@@ -91,10 +91,10 @@ type Model struct {
 	sources     []usage.Source
 	hubOpen     bool // the pet's hub is open on hubTab
 	hubTab      int
-	aboutScroll int // first changelog line the about tab shows
-	usageScroll int // first row the usage tab shows
+	aboutScroll int       // first changelog line the about tab shows
+	usageScroll int       // first row the usage tab shows
 	pulls       *prsState // the PRs tab's reading, nil until WithPRs
-	floorScroll int // first row of the floor plan shown, when it does not fit
+	floorScroll int       // first row of the floor plan shown, when it does not fit
 	changelog   string
 	updateCheck func() string // nil when updates are not looked for
 	newer       string        // a newer release's tag, once the check finds one

@@ -548,8 +548,16 @@ GitHub at once, as a single comment on that line of the diff (a removed line
 goes to the old file, the others to the new one), anchored to the commit the
 diff shows. Approvals, change requests and notes are reviews: the inbox is
 read again right after sending, so the star goes as soon as GitHub stops
-asking for your review. GitHub refuses to let you approve your own pull request; its answer
-shows on screen.
+asking for your review.
+
+**Who approved, and whether it is still open.** Each row of the list ends with
+its state (`draft`, `merged`, `closed`) and `✓ ana,bob` for the people whose
+latest review approves it and `✗ cy` for those who asked for changes. Opening
+the diff reads the pull request again, so the title row shows what it is
+now: a pull request that merged or closed since the last reading takes no
+approval or change request. Neither does your own: `a` and `x` answer
+`You cannot approve your own pull request.` and the hint row stops offering
+them; `c` and `m` still work.
 
 **Reading a file in the editor.** `o` takes the file under the cursor, at the
 diff's commit, through `gh` into a private temporary folder and opens it in
