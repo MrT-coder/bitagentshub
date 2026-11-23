@@ -66,8 +66,11 @@ type Config struct {
 	// CheckUpdates asks GitHub, at most once a day, whether a newer
 	// release exists, to say so in the header.
 	CheckUpdates bool
-	Rest         Rest
-	PRs          PRs
+	// AutoUpgrade installs that release as the office opens, before it
+	// shows anything; never on while CheckUpdates is off.
+	AutoUpgrade bool
+	Rest        Rest
+	PRs         PRs
 }
 
 // Board is the task board: daily notes per project in Dir, opened with
@@ -213,7 +216,7 @@ func Load(path string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("%s: %w", path, err)
 	}
-	check, err := updatesSection(file.Upd)
+	check, auto, err := updatesSection(file.Upd)
 	if err != nil {
 		return Config{}, fmt.Errorf("%s: %w", path, err)
 	}
@@ -225,7 +228,7 @@ func Load(path string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("%s: %w", path, err)
 	}
-	return Config{Keys: k, Theme: theme, Palette: palette, Board: b, Language: lang, PetName: pet, Scrollback: lines, CheckUpdates: check, Rest: rst, PRs: prs}, nil
+	return Config{Keys: k, Theme: theme, Palette: palette, Board: b, Language: lang, PetName: pet, Scrollback: lines, CheckUpdates: check, AutoUpgrade: auto, Rest: rst, PRs: prs}, nil
 }
 
 // boardSection reads [board]: an absolute folder, since the office runs from

@@ -58,6 +58,26 @@ func TestTheTerminalSectionSetsTheHistory(t *testing.T) {
 	}
 }
 
+func TestTheUpdatesSectionTurnsTheAutoUpgradeOffAndItNeedsTheCheck(t *testing.T) {
+	for _, tc := range []struct {
+		body       string
+		check, upg bool
+	}{
+		{"", true, true},
+		{"[updates]\nauto = false\n", true, false},
+		{"[updates]\ncheck = false\n", false, false},
+		{"[updates]\ncheck = false\nauto = true\n", false, false},
+	} {
+		c, err := Load(write(t, tc.body))
+		if err != nil || c.CheckUpdates != tc.check || c.AutoUpgrade != tc.upg {
+			t.Errorf("%q: check %v auto %v (%v), want %v %v", tc.body, c.CheckUpdates, c.AutoUpgrade, err, tc.check, tc.upg)
+		}
+	}
+	if _, err := Load(write(t, "[updates]\nauto = \"yes\"\n")); err == nil || !strings.Contains(err.Error(), "updates.auto") {
+		t.Errorf("auto = \"yes\": error %v should name updates.auto", err)
+	}
+}
+
 func TestTheUpdatesSectionTurnsTheCheckOff(t *testing.T) {
 	if c, err := Load(write(t, "")); err != nil || !c.CheckUpdates {
 		t.Errorf("no [updates]: check %v, %v, want on", c.CheckUpdates, err)

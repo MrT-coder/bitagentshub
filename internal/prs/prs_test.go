@@ -34,9 +34,9 @@ func response(viewer string, nodes ...string) []byte {
 
 // fakeGH answers a search by its qualifier and remembers the searches asked.
 type fakeGH struct {
-	requested, authored []string
-	asked               []string
-	err                 error
+	requested, authored, others []string
+	asked                       []string
+	err                         error
 }
 
 func (f *fakeGH) run(_ context.Context, args ...string) ([]byte, error) {
@@ -53,7 +53,10 @@ func (f *fakeGH) run(_ context.Context, args ...string) ([]byte, error) {
 	if strings.Contains(search, "review-requested:@me") {
 		return response("me", f.requested...), nil
 	}
-	return response("me", f.authored...), nil
+	if strings.Contains(search, "author:@me") {
+		return response("me", f.authored...), nil
+	}
+	return response("me", f.others...), nil
 }
 
 func TestTheInboxSortsPullRequestsIntoGitHubsGroups(t *testing.T) {
@@ -150,6 +153,44 @@ func TestNoFilterSearchesEverywhere(t *testing.T) {
 			t.Errorf("search %q is scoped though no filter is set", s)
 		}
 	}
+}
+
+func TestEveryOpenPRShowsEvenWhenNoReviewIsAskedOfYou(t *testing.T) {
+	gh := &fakeGH{others: []string{
+		fakePR("acme/api", 9, false, "", "SUCCESS", ""),
+		fakePR("acme/api", 1, false, "", "SUCCESS", "user:me"), // also found by the review search
+	}, requested: []string{fakePR("acme/api", 1, false, "", "SUCCESS", "user:me")}}
+	in, err := Load(context.Background(), gh.run, Filter{Orgs: []string{"acme"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []int
+	for _, p := range in.Group(OtherOpen) {
+		got = append(got, p.Number)
+	}
+	if fmt.Sprint(got) != "[9]" {
+		t.Errorf("other open PRs = %v, want [9]", got)
+	}
+	if n := len(in.Group(NeedsReview)); n != 1 {
+		t.Errorf("the review asked of you shows %d times, want 1", n)
+	}
+	if got := in.Pending(); got != 1 {
+		t.Errorf("pending = %d, want 1: only the review asked of you raises the star", got)
+	}
+}
+
+func TestWithoutAFilterTheOtherPRsAreThoseThatInvolveYou(t *testing.T) {
+	gh := &fakeGH{}
+	if _, err := Load(context.Background(), gh.run, Filter{}); err != nil {
+		t.Fatal(err)
+	}
+	want := "is:pr is:open sort:updated-desc involves:@me"
+	for _, s := range gh.asked {
+		if s == want {
+			return
+		}
+	}
+	t.Errorf("searches = %q, want one of %q: an unscoped search would read all of GitHub", gh.asked, want)
 }
 
 func TestALoadFailureIsReportedNotHidden(t *testing.T) {
