@@ -322,7 +322,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.restInput()
 		m.prefixed = false // a paste is not the key the prefix waits for
 		if m.hubOpen {
-			return m, nil // nothing types into a program under the hub
+			return m.prsPaste(msg.Content), nil // only a filter or a comment being typed takes it
 		}
 		// One message for the whole paste, so its line breaks never submit.
 		if m.picker != nil {
@@ -400,6 +400,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.prsPoll(false)
 	case prsDiffMsg:
 		return m.prsDiffRead(msg), nil
+	case prsActionMsg:
+		return m.prsActed(msg)
 	case prsFilterMsg:
 		m = m.prsFiltered(msg)
 		if msg.err != nil {
