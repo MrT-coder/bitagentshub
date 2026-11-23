@@ -398,6 +398,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.prsNext(msg)
 	case prsTickMsg:
 		return m, m.prsPoll(false)
+	case prsDiffMsg:
+		return m.prsDiffRead(msg), nil
 	case prsFilterMsg:
 		m = m.prsFiltered(msg)
 		if msg.err != nil {
