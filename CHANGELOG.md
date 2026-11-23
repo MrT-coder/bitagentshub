@@ -3,7 +3,7 @@
 Notable changes to BitAgentsHub, newest first. The office shows this file
 in the hub's About tab, so every release adds its section here.
 
-## Unreleased
+## v0.8.0 (2026-11-23)
 
 - A **PRs** tab in the hub is a pull request inbox: your reviews and your
   own pull requests in GitHub's groups (needs your review, drafts, needs
