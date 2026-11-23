@@ -28,6 +28,7 @@ const (
 	OpenHub        = "open_hub"      // also `p` on the board: the pet's hub
 	ShowUsage      = "show_usage"    // the hub on its usage tab; also `u` on the board
 	ShowSettings   = "show_settings" // the hub on its settings tab; also `s` on the board
+	ShowPRs        = "show_prs"      // the hub on its pull requests tab; also `r` on the board
 	OpenBoard      = "open_board"    // also `b` on the board
 	NewAgent       = "new_agent"     // also `n` on the board
 )
@@ -46,6 +47,7 @@ var defaults = map[string][]string{
 	OpenHub:        {"prefix+p"},
 	ShowUsage:      {"prefix+u"},
 	ShowSettings:   {"prefix+s"},
+	ShowPRs:        {"prefix+r"},
 	OpenBoard:      {"prefix+b"},
 	NewAgent:       {"prefix+shift+n"},
 }
@@ -65,6 +67,7 @@ type Config struct {
 	// release exists, to say so in the header.
 	CheckUpdates bool
 	Rest         Rest
+	PRs          PRs
 }
 
 // Board is the task board: daily notes per project in Dir, opened with
@@ -149,6 +152,7 @@ func Load(path string) (Config, error) {
 		Term  map[string]any `toml:"terminal"`
 		Upd   map[string]any `toml:"updates"`
 		Rest  map[string]any `toml:"rest"`
+		PRs   map[string]any `toml:"prs"`
 	}
 	if path != "" {
 		_, err := toml.DecodeFile(path, &file)
@@ -217,7 +221,11 @@ func Load(path string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("%s: %w", path, err)
 	}
-	return Config{Keys: k, Theme: theme, Palette: palette, Board: b, Language: lang, PetName: pet, Scrollback: lines, CheckUpdates: check, Rest: rst}, nil
+	prs, err := prsSection(file.PRs)
+	if err != nil {
+		return Config{}, fmt.Errorf("%s: %w", path, err)
+	}
+	return Config{Keys: k, Theme: theme, Palette: palette, Board: b, Language: lang, PetName: pet, Scrollback: lines, CheckUpdates: check, Rest: rst, PRs: prs}, nil
 }
 
 // boardSection reads [board]: an absolute folder, since the office runs from

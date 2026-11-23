@@ -1,6 +1,7 @@
 package office
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -180,6 +181,24 @@ func DrawPet(buf *screen.Buffer, l Layout, mood pet.Mood, tick int) {
 	if text, st := petBubble(mood, tick); text != "" {
 		buf.Text(cx+catW-2, cy/2-1, text, st)
 	}
+}
+
+// DrawPetBadge paints a star with the count over the pet's corner while n
+// pull requests wait for the user's review. It sits left of the pet's
+// bubble, which keeps the cells above its head.
+func DrawPetBadge(buf *screen.Buffer, l Layout, n int) {
+	if n <= 0 {
+		return
+	}
+	text := "★"
+	switch {
+	case n > 99:
+		text += "99+"
+	case n > 1:
+		text += fmt.Sprint(n)
+	}
+	x, y, _, _ := l.PetCells()
+	buf.Text(x+1, y, text, screen.Style{Fg: rgb(0x2e3440), HasFg: true, Bg: rgb(0xebcb8b), HasBg: true, Bold: true})
 }
 
 // PetCells is the pet's corner in terminal cells of the floor.

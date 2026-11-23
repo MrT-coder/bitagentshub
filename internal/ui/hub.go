@@ -18,6 +18,7 @@ const (
 	tabPet = iota
 	tabUsage
 	tabSettings
+	tabPRs
 	tabAbout
 	tabCount
 )
@@ -29,6 +30,8 @@ func tabName(tab int) string {
 		return i18n.T("usage")
 	case tabSettings:
 		return i18n.T("settings")
+	case tabPRs:
+		return i18n.T("PRs")
 	case tabAbout:
 		return i18n.T("about")
 	}
@@ -64,6 +67,8 @@ func (m Model) showTab(tab int) (Model, tea.Cmd) {
 	case tabSettings:
 		m.setWin = &settingsWin{}
 		return m, m.readSettings()
+	case tabPRs:
+		return m.prsFollow(), m.prsPoll(true)
 	}
 	return m, nil
 }
@@ -80,6 +85,9 @@ func (m Model) hubAction(action string) (Model, tea.Cmd, bool) {
 	case config.ShowSettings:
 		m, cmd := m.openHub(tabSettings)
 		return m, cmd, true
+	case config.ShowPRs:
+		m, cmd := m.openHub(tabPRs)
+		return m, cmd, true
 	}
 	return m, nil, false
 }
@@ -89,6 +97,12 @@ func (m Model) hubAction(action string) (Model, tea.Cmd, bool) {
 func (m Model) hubKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	if m.hubTab == tabPet && m.renaming {
 		return m.renameKey(msg) // every key belongs to the name being typed
+	}
+	if m.prsEditing() {
+		return m.prsEditKey(msg) // every key belongs to the filter being typed
+	}
+	if m.prsDiffOpen() {
+		return m.prsDiffKey(msg) // the diff view keeps its keys; esc goes back to the list
 	}
 	if sw := m.setWin; m.hubTab == tabSettings && sw != nil && (sw.capturing || sw.naming) {
 		m, cmd := m.settingsKey(msg) // every key belongs to the key or name being typed
@@ -132,6 +146,8 @@ func (m Model) hubKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case tabSettings:
 		m, cmd := m.settingsKey(msg)
 		return m.followSettings(), cmd
+	case tabPRs:
+		return m.prsKey(k)
 	case tabUsage, tabAbout:
 		switch k {
 		case "up", "k":
@@ -146,7 +162,7 @@ func (m Model) hubKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // hubMouse handles the mouse while the hub is open: a click on a tab opens
 // it, a click outside the window closes it, the wheel scrolls the tab.
 func (m Model) hubMouse(msg tea.MouseMsg) (Model, tea.Cmd) {
-	if m.renaming || (m.setWin != nil && (m.setWin.capturing || m.setWin.naming)) {
+	if m.renaming || m.prsEditing() || (m.setWin != nil && (m.setWin.capturing || m.setWin.naming)) {
 		return m, nil // the name or key being typed keeps the hub as it is
 	}
 	switch msg := msg.(type) {
@@ -176,6 +192,9 @@ func (m Model) hubMouse(msg tea.MouseMsg) (Model, tea.Cmd) {
 		if m.hubTab == tabSettings {
 			return m.settingsClick(fx-x, fy-y-1)
 		}
+		if m.hubTab == tabPRs {
+			return m.prsClick(fy - y - 2), nil
+		}
 	}
 	return m, nil
 }
@@ -189,6 +208,8 @@ func (m Model) scrollHub(delta int) Model {
 		m.usageScroll = clampScroll(m.usageScroll+delta, len(m.usageRows()), h-4)
 	case tabSettings:
 		return m.scrollSettings(delta)
+	case tabPRs:
+		return m.scrollPRs(delta)
 	case tabAbout:
 		head, log := m.aboutLines()
 		m.aboutScroll = clampScroll(m.aboutScroll+delta, len(log), aboutRoom(h, len(head)))
@@ -225,6 +246,11 @@ func (m Model) hubRect() (x, y, w, h int) {
 	case tabSettings:
 		x, y, w, h, _ = m.settingsLayout(fw, fh)
 		return x, y, w, h
+	case tabPRs:
+		if m.prsDiffOpen() {
+			return hubFrame(fw, fh, diffW, fh)
+		}
+		return hubFrame(fw, fh, prsW, len(m.prRows())+4)
 	case tabAbout:
 		head, log := m.aboutLines()
 		return hubFrame(fw, fh, aboutW, len(head)+len(log)+4)
@@ -283,6 +309,8 @@ func (m Model) drawHub(buf *screen.Buffer) {
 		m.drawUsage(buf)
 	case tabSettings:
 		m.drawSettings(buf)
+	case tabPRs:
+		m.drawPRs(buf)
 	case tabAbout:
 		m.drawAbout(buf)
 	}

@@ -23,6 +23,7 @@ import (
 	"github.com/MrT-coder/bitagentshub/internal/herdr"
 	"github.com/MrT-coder/bitagentshub/internal/i18n"
 	"github.com/MrT-coder/bitagentshub/internal/office"
+	"github.com/MrT-coder/bitagentshub/internal/prs"
 	"github.com/MrT-coder/bitagentshub/internal/term"
 	"github.com/MrT-coder/bitagentshub/internal/ui"
 	"github.com/MrT-coder/bitagentshub/internal/usage"
@@ -121,6 +122,7 @@ func main() {
 
 	store := claude.NewStore(*root, claude.Options{WeekStart: wd, ActiveWindow: *active})
 	model := ui.New(store).WithAgentCmd(strings.Fields(*agentCmd)).WithRoots(splitList(*roots)).WithHost(*host).WithShell(strings.Fields(*shell)).WithKeys(cfg.Keys).WithBoard(cfg.Board).WithChangelog(changelog).WithPetName(cfg.PetName)
+	model = model.WithPRs(cfg.PRs, prs.ExecGH, *configPath)
 	if *herdrSock != "" {
 		model = model.WithHerdr(herdr.NewClient(*herdrSock))
 	}

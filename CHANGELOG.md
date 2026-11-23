@@ -3,6 +3,23 @@
 Notable changes to BitAgentsHub, newest first. The office shows this file
 in the hub's About tab, so every release adds its section here.
 
+## v0.8.0 (2026-11-23)
+
+- A **PRs** tab in the hub is a pull request inbox: your reviews and your
+  own pull requests in GitHub's groups (needs your review, drafts, needs
+  action, ready to merge), read through `gh`. `r` on the board or `ctrl+a r`
+  opens it; `f` filters by organizations and repositories and saves them as
+  `[prs]` in `config.toml`.
+- While a review waits for you, a star shows at the start of the header
+  (`★ 2 to review`) and on the pet's corner, and goes when GitHub stops asking
+  for your review.
+- `enter` opens a pull request's diff: files, hunks, added and removed lines
+  in color, line numbers when there is room, and it fits a phone. From it,
+  `c` comments on a line of the diff, `a` approves, `x` asks for changes and
+  `m` leaves a note, each only after a `y`. `o` opens the file in a
+  read-only `nvim` (or `vim`) in a window of the workspace, with no clone of
+  the repository and no agent needed.
+
 ## v0.7.0 (2026-11-18)
 
 - The mouse works everywhere: click a hub tab to open it, click outside the

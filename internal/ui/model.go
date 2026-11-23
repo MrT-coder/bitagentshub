@@ -93,6 +93,7 @@ type Model struct {
 	hubTab      int
 	aboutScroll int // first changelog line the about tab shows
 	usageScroll int // first row the usage tab shows
+	pulls       *prsState // the PRs tab's reading, nil until WithPRs
 	floorScroll int // first row of the floor plan shown, when it does not fit
 	changelog   string
 	updateCheck func() string // nil when updates are not looked for
@@ -252,7 +253,7 @@ func (m Model) startHosted(id, dir string, argv []string, w, h int) (Terminal, b
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(win32Input(), m.poll(), m.herdrPoll(), m.waitTerm(), m.gitPoll(), m.boardPoll(), m.checkUpdate())
+	return tea.Batch(win32Input(), m.poll(), m.herdrPoll(), m.waitTerm(), m.gitPoll(), m.boardPoll(), m.checkUpdate(), m.prsPoll(false))
 }
 
 // modifierAlone reports a modifier or lock key pressed by itself, which
@@ -321,7 +322,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.restInput()
 		m.prefixed = false // a paste is not the key the prefix waits for
 		if m.hubOpen {
-			return m, nil // nothing types into a program under the hub
+			return m.prsPaste(msg.Content), nil // only a filter or a comment being typed takes it
 		}
 		// One message for the whole paste, so its line breaks never submit.
 		if m.picker != nil {
@@ -392,6 +393,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.reports, m.usageAt = msg, time.Now()
 	case updateMsg:
 		m.newer = string(msg)
+	case prsMsg:
+		m = m.prsRead(msg)
+		return m, m.prsNext(msg)
+	case prsTickMsg:
+		return m, m.prsPoll(false)
+	case prsDiffMsg:
+		return m.prsDiffRead(msg), nil
+	case prsActionMsg:
+		return m.prsActed(msg)
+	case prsTreeMsg:
+		return m.prsTreeOpened(msg)
+	case prsFilterMsg:
+		m = m.prsFiltered(msg)
+		if msg.err != nil {
+			return m, nil
+		}
+		return m, m.prsPoll(true)
 	case petNameMsg:
 		return m.petNamed(msg), nil
 	case settingsMsg:
@@ -500,6 +518,8 @@ func (m Model) updateBoard(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.openHub(tabUsage)
 	case "s":
 		return m.openHub(tabSettings)
+	case "r":
+		return m.openHub(tabPRs)
 	}
 	return m, nil
 }
@@ -595,7 +615,11 @@ func (m Model) render() string {
 
 	var b strings.Builder
 	b.WriteString(titleStyle.Render("BitAgentsHub"))
-	summary := i18n.Tf(" · %d stations · %d working", len(stations), working)
+	summary := ""
+	if n := m.prsPending(); n > 0 {
+		summary = i18n.Tf(" · ★ %d to review", n) // first, so a phone's narrow header keeps it
+	}
+	summary += i18n.Tf(" · %d stations · %d working", len(stations), working)
 	if m.board.Dir != "" {
 		summary += fmt.Sprintf(" · 🐟 %d", m.stars.Total)
 	}
@@ -659,6 +683,7 @@ func (m Model) drawFloor(buf *screen.Buffer) {
 		full = screen.New(buf.W, rows)
 	}
 	office.Draw(full, m.layout, m.crowd, m.agents(), m.frame, m.selected, m.petState().Mood)
+	office.DrawPetBadge(full, m.layout, m.prsPending())
 	if full != buf {
 		buf.CopyRows(full, m.floorScroll)
 	}
