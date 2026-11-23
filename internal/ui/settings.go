@@ -60,6 +60,7 @@ var keyRows = []keyRow{
 	{config.OpenBoard},
 	{config.NewAgent},
 	{config.OpenHub},
+	{config.ShowPRs},
 }
 
 // label names the row's action in the current language.
@@ -85,6 +86,8 @@ func (r keyRow) label() string {
 		return i18n.T("new agent")
 	case config.OpenHub:
 		return i18n.T("hub")
+	case config.ShowPRs:
+		return i18n.T("pull requests")
 	}
 	return i18n.T("prefix")
 }

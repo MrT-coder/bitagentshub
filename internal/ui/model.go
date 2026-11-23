@@ -93,6 +93,7 @@ type Model struct {
 	hubTab      int
 	aboutScroll int // first changelog line the about tab shows
 	usageScroll int // first row the usage tab shows
+	pulls       *prsState // the PRs tab's reading, nil until WithPRs
 	floorScroll int // first row of the floor plan shown, when it does not fit
 	changelog   string
 	updateCheck func() string // nil when updates are not looked for
@@ -252,7 +253,7 @@ func (m Model) startHosted(id, dir string, argv []string, w, h int) (Terminal, b
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(win32Input(), m.poll(), m.herdrPoll(), m.waitTerm(), m.gitPoll(), m.boardPoll(), m.checkUpdate())
+	return tea.Batch(win32Input(), m.poll(), m.herdrPoll(), m.waitTerm(), m.gitPoll(), m.boardPoll(), m.checkUpdate(), m.prsPoll(false))
 }
 
 // modifierAlone reports a modifier or lock key pressed by itself, which
@@ -392,6 +393,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.reports, m.usageAt = msg, time.Now()
 	case updateMsg:
 		m.newer = string(msg)
+	case prsMsg:
+		m = m.prsRead(msg)
+		return m, m.prsNext(msg)
+	case prsTickMsg:
+		return m, m.prsPoll(false)
 	case petNameMsg:
 		return m.petNamed(msg), nil
 	case settingsMsg:
@@ -500,6 +506,8 @@ func (m Model) updateBoard(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.openHub(tabUsage)
 	case "s":
 		return m.openHub(tabSettings)
+	case "r":
+		return m.openHub(tabPRs)
 	}
 	return m, nil
 }
