@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -67,12 +68,28 @@ func SavePalette(path, name string) error {
 // path, or removes its line when value is "", the way SaveTheme describes.
 // noun names the setting in errors; read gives it back from a loaded file.
 func saveEntry(path, table, key, value, noun string, read func(Config) string) error {
+	literal, want := "", any(nil)
+	if value != "" {
+		literal, want = quote(value), value
+	}
+	return saveValue(path, table, key, literal, want, noun, func(cfg Config) error {
+		if got := read(cfg); got != value {
+			return fmt.Errorf("%s: saved %s %q but the file reads %q", path, noun, value, got)
+		}
+		return nil
+	})
+}
+
+// saveValue sets [table] key to literal, a TOML value, or removes its line
+// when literal is "". want is the value the parsed file must hold under the
+// key afterwards, nil for none; verify checks what Load reads back.
+func saveValue(path, table, key, literal string, want any, noun string, verify func(Config) error) error {
 	data, err := os.ReadFile(path)
 	missing := errors.Is(err, fs.ErrNotExist)
 	if err != nil && !missing {
 		return err
 	}
-	if missing && value == "" {
+	if missing && literal == "" {
 		return nil
 	}
 	text, hasBOM := strings.CutPrefix(string(data), bom)
@@ -81,10 +98,6 @@ func saveEntry(path, table, key, value, noun string, read func(Config) string) e
 		return fmt.Errorf("%s: %w", path, err)
 	}
 	_, defined := before[table]
-	literal := ""
-	if value != "" {
-		literal = quote(value)
-	}
 	out, changed, err := editEntry(text, table, key, literal, "the "+noun, defined)
 	if err != nil {
 		return fmt.Errorf("%s: %w", path, err)
@@ -98,19 +111,58 @@ func saveEntry(path, table, key, value, noun string, read func(Config) string) e
 	if _, err := toml.Decode(out, &after); err != nil {
 		return fmt.Errorf("%s: setting the %s would break the file: %w", path, noun, err)
 	}
-	var want any
-	if value != "" {
-		want = value
-	}
 	if !reflect.DeepEqual(after, withEntry(before, table, key, want)) {
 		return fmt.Errorf("%s: setting the %s would change more than [%s] %s; edit it by hand", path, noun, table, key)
 	}
 	if hasBOM {
 		out = bom + out
 	}
-	return replace(path, []byte(out), func(cfg Config) error {
-		if got := read(cfg); got != value {
-			return fmt.Errorf("%s: saved %s %q but the file reads %q", path, noun, value, got)
+	return replace(path, []byte(out), verify)
+}
+
+// SavePRsFilter sets [prs] orgs and repos in the config file at path the way
+// SaveTheme sets the name; an empty list removes its line, which shows every
+// pull request again. Names Load would refuse are refused before the file is
+// touched.
+func SavePRsFilter(path string, orgs, repos []string) error {
+	if err := CheckPRsFilter(orgs, repos); err != nil {
+		return err
+	}
+	if err := saveList(path, "repos", repos, func(c Config) []string { return c.PRs.Repos }); err != nil {
+		return err
+	}
+	return saveList(path, "orgs", orgs, func(c Config) []string { return c.PRs.Orgs })
+}
+
+// CheckPRsFilter reports why Load would refuse these organizations and
+// repositories as a [prs] filter, or nil when it would take them.
+func CheckPRsFilter(orgs, repos []string) error {
+	_, err := prsSection(map[string]any{"orgs": anyList(orgs), "repos": anyList(repos)})
+	return err
+}
+
+func anyList(names []string) []any {
+	out := make([]any, len(names))
+	for i, n := range names {
+		out[i] = n
+	}
+	return out
+}
+
+// saveList sets [prs] key to a one-line array of names, or removes the line
+// when there are none.
+func saveList(path, key string, names []string, read func(Config) []string) error {
+	literal, want := "", any(nil)
+	if len(names) > 0 {
+		quoted := make([]string, len(names))
+		for i, n := range names {
+			quoted[i] = quote(n)
+		}
+		literal, want = "["+strings.Join(quoted, ", ")+"]", anyList(names)
+	}
+	return saveValue(path, "prs", key, literal, want, "prs "+key, func(cfg Config) error {
+		if got := read(cfg); !slices.Equal(got, names) {
+			return fmt.Errorf("%s: saved prs.%s %q but the file reads %q", path, key, names, got)
 		}
 		return nil
 	})
