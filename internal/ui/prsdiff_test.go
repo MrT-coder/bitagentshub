@@ -69,8 +69,10 @@ func TestTheDiffOfTheSecondPullRequestIsAskedForWhenItIsSelected(t *testing.T) {
 	}
 	m := press(prsOffice(t, prsOn, run), key("r"))
 	m = press(press(m, key("down")), key("enter"))
-	if len(asked) != 1 || asked[0] != "pr diff 8 --repo acme/api --color=never" {
-		t.Errorf("gh was asked %q", asked)
+	// The diff, then the commit it is at, which a line comment needs.
+	want := []string{"pr diff 8 --repo acme/api --color=never", "pr view 8 --repo acme/api --json headRefOid -q .headRefOid"}
+	if strings.Join(asked, "|") != strings.Join(want, "|") {
+		t.Errorf("gh was asked %q, want %q", asked, want)
 	}
 	_ = m
 }

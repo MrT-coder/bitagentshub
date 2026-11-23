@@ -29,6 +29,7 @@ type prsDiffMsg struct {
 	repo   string
 	number int
 	files  []prs.FileDiff
+	sha    string // the head commit the diff was read at; "" when unknown
 	err    error
 }
 
@@ -59,6 +60,13 @@ type diffState struct {
 	err     error
 	cur     int // the row under the cursor
 	scroll  int // the first row shown
+	sha     string
+
+	mode  diffMode // what is going on besides browsing
+	act   diffAct  // the action being typed, confirmed or sent
+	draft string   // the text being typed
+	tgt   lineTarget
+	msg   string // a hint, or what the last action did
 }
 
 // prsDiffOpen tells whether the PRs tab shows a diff instead of the list.
@@ -80,7 +88,12 @@ func (m Model) prsOpenDiff() (Model, tea.Cmd) {
 		ctx, cancel := context.WithTimeout(context.Background(), prsReadTime)
 		defer cancel()
 		files, err := prs.Diff(ctx, run, pr.Repo, pr.Number)
-		return prsDiffMsg{repo: pr.Repo, number: pr.Number, files: files, err: err}
+		sha := ""
+		if err == nil {
+			// Only a line comment needs it, and the diff reads fine without.
+			sha, _ = prs.HeadSHA(ctx, run, pr.Repo, pr.Number)
+		}
+		return prsDiffMsg{repo: pr.Repo, number: pr.Number, files: files, sha: sha, err: err}
 	}
 }
 
@@ -94,7 +107,7 @@ func (m Model) prsDiffRead(msg prsDiffMsg) Model {
 	d := p.diff
 	d.loading, d.err = false, msg.err
 	if msg.err == nil {
-		d.files = msg.files
+		d.files, d.sha = msg.files, msg.sha
 		d.rows = diffRows(msg.files)
 	}
 	return m
@@ -191,7 +204,24 @@ func (m Model) diffJump(dir int) Model {
 // prsDiffKey handles the keys of the diff view: esc goes back to the list.
 func (m Model) prsDiffKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	d := m.pulls.diff
+	switch d.mode {
+	case modeTyping:
+		return m.diffTypeKey(msg)
+	case modeConfirm:
+		return m.diffConfirmKey(msg)
+	case modeSending:
+		return m, nil
+	}
+	d.msg = ""
 	switch msg.String() {
+	case "c":
+		return m.diffComment(), nil
+	case "a":
+		return m.diffStart(actApprove), nil
+	case "x":
+		return m.diffStart(actChanges), nil
+	case "m":
+		return m.diffStart(actNote), nil
 	case "esc", "q", "backspace":
 		m.pulls.diff = nil
 	case "up", "k":
@@ -257,6 +287,7 @@ func (m Model) drawDiff(buf *screen.Buffer) {
 	for i, r := range d.rows[first:min(len(d.rows), first+room)] {
 		drawDiffRow(buf, x+2, y+2+i, inner, r, first+i == d.cur)
 	}
+	m.drawDiffPrompt(buf, x+2, y+h-2, inner)
 }
 
 // drawDiffRow paints one row inner cells wide at x, y.
