@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -35,7 +37,13 @@ func ghAnswering(nodes ...string) (prs.Runner, *int) {
 
 func prsOffice(t *testing.T, cfg config.PRs, run prs.Runner) Model {
 	t.Helper()
-	m := New(nil).WithPRs(cfg, run)
+	return prsOfficeAt(t, cfg, run, "")
+}
+
+// prsOfficeAt is an office whose PRs filter is saved to the config at path.
+func prsOfficeAt(t *testing.T, cfg config.PRs, run prs.Runner, path string) Model {
+	t.Helper()
+	m := New(nil).WithPRs(cfg, run, path)
 	m = update(m, tea.WindowSizeMsg{Width: 120, Height: 40})
 	return update(m, snapshotMsg(claude.Snapshot{Files: 1, Agents: []claude.Agent{{ID: "a", Project: "p", Group: "g", State: claude.StateWaiting}}}))
 }
@@ -152,6 +160,130 @@ func TestWithoutPRsSetUpTheTabSaysSo(t *testing.T) {
 	m = update(m, snapshotMsg(claude.Snapshot{Files: 1, Agents: []claude.Agent{{ID: "a", Project: "p", Group: "g", State: claude.StateWaiting}}}))
 	m, _ = m.openHub(tabPRs)
 	if !strings.Contains(view(m), "Pull requests are off") {
+		t.Errorf("view:\n%s", view(m))
+	}
+}
+
+// saveFilter presses enter in the filter editor and plays what follows: the
+// save's answer, then the refresh it asks for. It returns the model after
+// the save and whether a refresh was asked for.
+func saveFilter(t *testing.T, m Model) (Model, bool) {
+	t.Helper()
+	next, cmd := m.Update(key("enter"))
+	m = next.(Model)
+	if cmd == nil {
+		return m, false
+	}
+	next, cmd = m.Update(cmd())
+	m = next.(Model)
+	if cmd == nil {
+		return m, false
+	}
+	return update(m, cmd()), true
+}
+
+func TestTheFilterIsEditedInTheTabAndSavedToTheConfig(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	run, calls := ghAnswering(prNode("acme/api", 7, "Fix login"))
+	m := press(prsOfficeAt(t, prsOn, run, path), key("r"))
+	m = press(m, key("f"))
+	if !strings.Contains(view(m), "filter: ") {
+		t.Fatalf("f did not open the filter editor:\n%s", view(m))
+	}
+	before := *calls
+	m = typeText(m, "acme, me/side")
+	m, refreshed := saveFilter(t, m)
+	if !refreshed || *calls == before {
+		t.Errorf("saving the filter did not read the pull requests again (refreshed=%v, calls %d→%d)", refreshed, before, *calls)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(data); !strings.Contains(got, `orgs = ["acme"]`) || !strings.Contains(got, `repos = ["me/side"]`) {
+		t.Errorf("config.toml = %q", got)
+	}
+	if !strings.Contains(view(m), "Showing: org acme · repo me/side") || strings.Contains(view(m), "filter: ") {
+		t.Errorf("the tab does not show the saved filter:\n%s", view(m))
+	}
+}
+
+func TestEscLeavesTheFilterAsItWas(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	run, _ := ghAnswering()
+	cfg := config.PRs{Enabled: true, Refresh: time.Minute, Orgs: []string{"acme"}}
+	m := press(prsOfficeAt(t, cfg, run, path), key("r"))
+	m = typeText(press(m, key("f")), "zzz")
+	m = press(m, key("esc"))
+	if !m.hubOpen || !strings.Contains(view(m), "Showing: org acme") || strings.Contains(view(m), "filter: ") {
+		t.Errorf("esc did not give the edit up and keep the tab:\n%s", view(m))
+	}
+	if _, err := os.Stat(path); err == nil {
+		t.Error("giving the edit up wrote the config")
+	}
+}
+
+func TestAnEmptyFilterShowsEveryPullRequestAgain(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte("[prs]\norgs = [\"acme\"]\nrefresh = \"5m\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run, _ := ghAnswering()
+	cfg := config.PRs{Enabled: true, Refresh: time.Minute, Orgs: []string{"acme"}}
+	m := press(prsOfficeAt(t, cfg, run, path), key("r"))
+	m = press(m, key("f"))
+	if !strings.Contains(view(m), "filter: acme") {
+		t.Fatalf("the editor does not start from the current filter:\n%s", view(m))
+	}
+	for range "acme" {
+		m = press(m, key("backspace"))
+	}
+	m, _ = saveFilter(t, m)
+	data, _ := os.ReadFile(path)
+	if strings.Contains(string(data), "orgs") || !strings.Contains(string(data), `refresh = "5m"`) {
+		t.Errorf("config.toml = %q", data)
+	}
+	if !strings.Contains(view(m), "Showing: every pull request") {
+		t.Errorf("view:\n%s", view(m))
+	}
+}
+
+func TestAFilterThatCannotBeSavedKeepsTheOldOneAndSaysWhy(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	run, _ := ghAnswering()
+	cfg := config.PRs{Enabled: true, Refresh: time.Minute, Orgs: []string{"acme"}}
+	m := press(prsOfficeAt(t, cfg, run, path), key("r"))
+	m = press(m, key("f"))
+	for range "acme" {
+		m = press(m, key("backspace"))
+	}
+	m = typeText(m, "a/b/c")
+	m, _ = saveFilter(t, m)
+	for _, want := range []string{"Could not save the filter", "Showing: org acme"} {
+		if !strings.Contains(view(m), want) {
+			t.Errorf("view missing %q:\n%s", want, view(m))
+		}
+	}
+	if _, err := os.Stat(path); err == nil {
+		t.Error("a refused filter wrote the config")
+	}
+}
+
+func TestWhileEditingTheFilterEveryKeyIsText(t *testing.T) {
+	run, _ := ghAnswering()
+	m := press(prsOffice(t, prsOn, run), key("r"))
+	m = typeText(press(m, key("f")), "pqrs")
+	if !m.hubOpen || !strings.Contains(view(m), "filter: pqrs") {
+		t.Errorf("p, q and r acted as keys while a filter was being typed:\n%s", view(m))
+	}
+}
+
+func TestWithoutAConfigFileTheFilterStillAppliesForTheSession(t *testing.T) {
+	run, _ := ghAnswering()
+	m := press(prsOffice(t, prsOn, run), key("r"))
+	m = typeText(press(m, key("f")), "acme")
+	m, _ = saveFilter(t, m)
+	if !strings.Contains(view(m), "Showing: org acme") {
 		t.Errorf("view:\n%s", view(m))
 	}
 }
