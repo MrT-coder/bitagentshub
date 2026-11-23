@@ -12,7 +12,9 @@ A pixel-art office in your terminal where every running Claude Code agent
 is a character at its desk: you see who is working, thinking or waiting,
 open any agent's terminal in a window, and follow its token spend and your
 plan's limits. A pet in the corner keeps an eye on it all. Everything is
-read from local files (`~/.claude/projects`); nothing is sent anywhere.
+read from local files (`~/.claude/projects`); nothing is sent anywhere. The
+one exception is the optional [PRs tab](#pull-requests), which reads from
+GitHub through your own `gh` and writes to it only what you confirm.
 
 It runs on Windows, macOS and Linux in any truecolor terminal, as one
 binary called `bah`.
@@ -140,7 +142,7 @@ From source: `go build -o bah.exe .`
 |---|---|
 | click an agent, `enter`, `c` | Open the agent's window |
 | `ctrl+a` `1`…`9` | Open station N (its number is on the floor next to the name) |
-| click the pet, `p` | Open the hub (see [The pet and its hub](#the-pet-and-its-hub)); `u` and `s` open it on the usage and settings tabs |
+| click the pet, `p` | Open the hub (see [The pet and its hub](#the-pet-and-its-hub)); `u`, `s` and `r` open it on the usage, settings and pull requests tabs |
 | `t` | Open a terminal in the selected agent's folder |
 | `b` | Open the selected agent's task note for today (see [Task board](#task-board)) |
 | `n` | Start a new agent or terminal in a project; in its list the wheel or a click chooses a folder, a click on the chosen one starts it and a click outside closes the list |
@@ -238,6 +240,7 @@ focus_pane_right = "prefix+l"
 open_hub         = "prefix+p"  # `p` on the board too
 show_usage       = "prefix+u"  # the hub on its usage tab; `u` on the board too
 show_settings    = "prefix+s"  # the hub on its settings tab; `s` on the board too
+show_prs         = "prefix+r"  # the hub on its PRs tab; `r` on the board too
 open_board       = "prefix+b"  # `b` on the board too
 new_agent        = "prefix+shift+n"  # `n` on the board too
 ```
@@ -331,7 +334,7 @@ usage tab.
 
 Clicking the pet, `p` on the board or `ctrl+a p` in a window opens the hub
 over whatever is on screen: one window with the **pet**, **usage**,
-**settings** and **about** tabs. `←`/`→` or a click on a tab switch tabs;
+**settings**, **PRs** and **about** tabs. `←`/`→` or a click on a tab switch tabs;
 a click outside the hub, `esc`, `q`, `p` or
 `ctrl+a p` close it, and nothing typed or clicked meanwhile reaches a
 program. `u` / `ctrl+a u` and `s` / `ctrl+a s` open it on the usage and
@@ -342,6 +345,8 @@ settings tabs, or close it when it already shows that tab.
   names it: type the name (up to 20 characters) and press `enter`; it is
   saved as `[pet] name` in `config.toml`, changing only that line. Resting
   the mouse on the pet shows its name over it.
+- **PRs**: your pull requests and the reviews waiting on you (see
+  [Pull requests](#pull-requests)).
 - **About**: the version and this project's [changelog](CHANGELOG.md),
   carried inside the binary; `↑`/`↓` and the wheel scroll it.
 
@@ -461,6 +466,79 @@ is Spanish and English otherwise. Another value stops the office at start
 with an error naming the file. Only what the office draws is translated:
 command-line output, `-help`, this README and the changelog stay in English,
 and the programs in the panes are never touched.
+
+## Pull requests
+
+The **PRs** tab of the hub is a small pull request inbox, and a star shows in
+the office while a review waits for you. It runs on [`gh`](https://cli.github.com),
+the GitHub CLI, as the account you are logged into (`gh auth login`): the
+office stores no token of its own. Without `gh`, or without a login, the tab
+says what to do. Open it with `r` on the board, `ctrl+a r` anywhere, or a
+click on its tab.
+
+The tab lists what GitHub's own pull request inbox does, in the same groups:
+**Needs your review**, **Needs your teams' review**, **Your drafts**,
+**Waiting for review or checks**, **Needs action** (changes requested or
+failing checks) and **Ready to merge**. It is read when the tab opens and
+every two minutes. `↑`/`↓` or a click pick a pull request, `r` reads again,
+`f` edits the filter and `enter` opens the diff.
+
+**The filter** says which organizations and repositories to look at. Press
+`f`, type names separated by commas or spaces, such as `acme, tools,
+me/side` (a name with a slash is a repository, the rest are organizations),
+and press `enter`: it is saved in `config.toml`, changing only those lines.
+Empty means every pull request. It can also be written by hand:
+
+```toml
+[prs]
+enabled = true          # false turns the tab, the reading and the star off
+orgs    = ["acme"]      # organizations or users
+repos   = ["me/side"]   # repositories, as owner/name
+refresh = "2m"          # how often to read; 30s at least
+```
+
+**The star.** While a review is asked of you, or of one of your teams, the
+header starts with `★ 2 to review` and the pet's corner shows `★2` (the pet
+tab says why; its mood does not change). It goes once the review leaves your
+inbox: after you approve, ask for changes or comment, or when you stop being
+a reviewer. A reading that fails keeps it.
+
+**The diff** shows the files of the pull request with `+3 −1`, its hunks,
+added lines on green and removed ones on red, and line numbers when there is
+room (not on a phone, where the code gets the width).
+
+| Key | Action |
+|---|---|
+| `↑` `↓` / `j` `k`, the wheel, a click | Move the cursor |
+| `pgup` `pgdown`, `g` `G` | A page, the top, the bottom |
+| `]` `[` | Next and previous file |
+| `c` | Comment on the line under the cursor |
+| `a` | Approve |
+| `x` | Request changes (asks for the text) |
+| `m` | Leave a note on the whole pull request (asks for the text) |
+| `o` | Open the file in a read-only editor |
+| `esc` | Back to the list; a second `esc` closes the hub |
+
+**Nothing is sent without a `y`.** Comments, approvals, change requests and
+notes first ask `(y/esc) …`: `y` sends, `esc` cancels and any other key does
+nothing, so a stray `enter` never publishes. A comment on a line goes to
+GitHub at once, as a single comment on that line of the diff (a removed line
+goes to the old file, the others to the new one), anchored to the commit the
+diff shows. Approvals, change requests and notes are reviews: the inbox is
+read again right after sending, so the star goes as soon as GitHub stops
+asking for your review. GitHub refuses to let you approve your own pull request; its answer
+shows on screen.
+
+**Reading a file in the editor.** `o` takes the file under the cursor, at the
+diff's commit, through `gh` into a private temporary folder and opens it in
+`nvim` (or `vim`) in a window of the workspace, read-only and unmodifiable,
+with modelines off. It needs no clone of the repository and no agent: any
+pull request your `gh` can read works. The folder goes away
+when you close that terminal or the office. `o` brings one file; press it on
+another for another window.
+
+Each search reads the first 50 pull requests. A file whose name Windows does
+not allow (one with `?`, say) cannot be opened there.
 
 ## Task board
 
