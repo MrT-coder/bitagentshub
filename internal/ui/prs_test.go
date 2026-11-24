@@ -115,7 +115,7 @@ func TestThePRsTabMovesItsSelectionWithTheArrows(t *testing.T) {
 	m := press(prsOffice(t, prsOn, run), key("r"))
 	marked := func() string {
 		for _, l := range strings.Split(view(m), "\n") {
-			if strings.Contains(l, "▸ acme/api#") {
+			if strings.Contains(l, "▸ ● acme/api#") {
 				return l
 			}
 		}
@@ -140,7 +140,7 @@ func TestClickingAPRSelectsIt(t *testing.T) {
 	x, y, _, _ := m.hubRect()
 	// rows: filter line, group header, #7, #8
 	m = press(m, click(1+x+4, officeY+y+2+3))
-	if !strings.Contains(view(m), "▸ acme/api#8") {
+	if !strings.Contains(view(m), "▸ ● acme/api#8") {
 		t.Errorf("the click did not select #8:\n%s", view(m))
 	}
 }

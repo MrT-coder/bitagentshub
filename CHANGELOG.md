@@ -3,6 +3,15 @@
 Notable changes to BitAgentsHub, newest first. The office shows this file
 in the hub's About tab, so every release adds its section here.
 
+## v0.9.3 (2026-11-23)
+
+- The PRs window colors each pull request by its state, from the loaded
+  theme: green when open, grey for a draft, purple when merged, red when
+  closed, with a shape for each (`● ○ ◆ ✕`) and the state of its checks
+  (`CI ✓`, `CI ✗`, `CI …`). A theme can set `pr_open`, `pr_draft`,
+  `pr_merged`, `pr_closed` and `pr_pending` in `[ui]`; without them they come
+  from its terminal palette, kept readable on its window background.
+
 ## v0.9.2 (2026-11-23)
 
 - The PRs list and the diff show who **approved** (`✓ ana`) or asked for

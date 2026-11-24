@@ -256,6 +256,12 @@ food    = "#ebcb8b"
 background = "#16181d"   # windows: terminals, board, settings
 text       = "#dcdfe4"   # also terminal text without colors of its own
 accent     = "#61afef"   # window borders
+# The PRs window colors a pull request by its state. All five are optional.
+pr_open    = "#3fb950"   # open, approvals and passing checks
+pr_draft   = "#8b949e"   # a draft
+pr_merged  = "#a371f7"   # merged
+pr_closed  = "#f85149"   # closed, requested changes and failing checks
+pr_pending = "#d29922"   # checks still running, and reviews asked of you
 
 [custom]
 # Colors of your own, for the letters below.
@@ -278,6 +284,11 @@ palette = ["#06080f", "#cb7c94", "#b7cc85", "#ffe066", "#7fb4ca", "#ff8dd7", "#7
   runs. Changing a list's length can give agents a different look.
 - `agents` is more than a shirt: it is the color of the agent's name on the
   floor, in the station strip and in the hub's usage tab.
+- The `pr_*` colors are derived when a theme leaves them out: from its
+  `[terminal] palette` (green, red, magenta, yellow and bright black) when it
+  has one, else GitHub's own colors. A derived color is moved toward the
+  window's `text` until it reads on `background` (contrast 4.5), so one theme
+  works on a dark or a light window. A color you write is used as written.
 - `[terminal] palette` takes exactly 16 colors. Without it, terminals keep
   their usual colors (the built-in theme has none). It recolors only those
   16; programs that ask for exact RGB colors or 256-color indexes past 15
