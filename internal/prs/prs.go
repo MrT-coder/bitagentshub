@@ -44,7 +44,8 @@ func Setup(ctx context.Context, run Runner) Status {
 	}
 }
 
-// Filter narrows the search. Both lists empty means every pull request.
+// Filter narrows the search. Both lists empty means every pull request of
+// your organizations and repositories, and those that involve you.
 type Filter struct {
 	Orgs  []string // "acme"
 	Repos []string // "owner/name"
@@ -251,14 +252,21 @@ func Load(ctx context.Context, run Runner, f Filter) (Inbox, error) {
 	var in Inbox
 	seen := map[string]bool{}
 	// The last search is every other open pull request: the whole of each
-	// org and repo of the filter, or, with no filter, those that involve you
-	// (a search of all GitHub would mean nothing).
+	// org and repo of the filter, or, with no filter, of every organization
+	// you belong to and of your own repositories, plus those that involve
+	// you anywhere (a search of all GitHub would mean nothing).
+	everywhere := []string{"involves:@me"}
+	if len(f.Orgs)+len(f.Repos) == 0 {
+		everywhere = append(everywhere, yourScopes(ctx, run)...)
+	}
 	for _, qualifier := range []string{"review-requested:@me", "author:@me", ""} {
-		for _, scope := range f.scopes() {
+		scopes := f.scopes()
+		if qualifier == "" && scopes[0] == "" {
+			scopes = everywhere
+		}
+		for _, scope := range scopes {
 			q := "is:pr is:open " + qualifier
 			switch {
-			case qualifier == "" && scope == "":
-				q = "is:pr is:open sort:updated-desc involves:@me"
 			case qualifier == "":
 				q = "is:pr is:open sort:updated-desc " + scope
 			case scope != "":
@@ -291,6 +299,38 @@ func Load(ctx context.Context, run Runner, f Filter) (Inbox, error) {
 		sort.SliceStable(list, func(i, j int) bool { return list[i].Updated.After(list[j].Updated) })
 	}
 	return in, nil
+}
+
+// yourScopes is where the pull requests you can see live when no filter is
+// set: your own repositories and every organization you belong to. A
+// failure leaves them out, so the window still shows what involves you.
+func yourScopes(ctx context.Context, run Runner) []string {
+	out, err := run(ctx, "api", "graphql", "-f", "query={viewer{login organizations(first:100){nodes{login}}}}")
+	if err != nil {
+		return nil
+	}
+	var resp struct {
+		Data struct {
+			Viewer struct {
+				Login         string `json:"login"`
+				Organizations struct {
+					Nodes []struct {
+						Login string `json:"login"`
+					} `json:"nodes"`
+				} `json:"organizations"`
+			} `json:"viewer"`
+		} `json:"data"`
+	}
+	if json.Unmarshal(out, &resp) != nil || resp.Data.Viewer.Login == "" {
+		return nil
+	}
+	scopes := []string{"user:" + resp.Data.Viewer.Login}
+	for _, o := range resp.Data.Viewer.Organizations.Nodes {
+		if o.Login != "" {
+			scopes = append(scopes, "org:"+o.Login)
+		}
+	}
+	return scopes
 }
 
 func (in *Inbox) add(p PR, mine bool) {

@@ -3,6 +3,13 @@
 Notable changes to BitAgentsHub, newest first. The office shows this file
 in the hub's About tab, so every release adds its section here.
 
+## Unreleased
+
+- With no filter, the PRs window shows every open pull request of the
+  organizations you belong to and of your own repositories, not only those
+  that involve you. If gh cannot list your organizations, it falls back to
+  those that involve you.
+
 ## v0.9.3 (2026-11-23)
 
 - The PRs window colors each pull request by its state, from the loaded

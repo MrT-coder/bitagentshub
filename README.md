@@ -499,7 +499,8 @@ The tab lists what GitHub's own pull request inbox does, in the same groups:
 **Waiting for review or checks**, **Needs action** (changes requested or
 failing checks) and **Ready to merge**, then **Other open pull requests**:
 every other open pull request of the organizations and repositories of the
-filter (with no filter, those that involve you), so a new PR always shows
+filter (with no filter, of every organization you belong to and of your own
+repositories, plus any that involve you elsewhere), so a new PR always shows
 even when nobody asked you to review it. Only a review asked of you or of
 your teams raises the star. It is read when the tab opens and
 every two minutes. `↑`/`↓` or a click pick a pull request, `r` reads again,
@@ -509,7 +510,8 @@ every two minutes. `↑`/`↓` or a click pick a pull request, `r` reads again,
 `f`, type names separated by commas or spaces, such as `acme, tools,
 me/side` (a name with a slash is a repository, the rest are organizations),
 and press `enter`: it is saved in `config.toml`, changing only those lines.
-Empty means every pull request. It can also be written by hand:
+Empty means every pull request of your organizations and repositories. It
+can also be written by hand:
 
 ```toml
 [prs]
