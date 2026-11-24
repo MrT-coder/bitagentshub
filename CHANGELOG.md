@@ -3,7 +3,7 @@
 Notable changes to BitAgentsHub, newest first. The office shows this file
 in the hub's About tab, so every release adds its section here.
 
-## Unreleased
+## v0.9.4 (2026-11-24)
 
 - With no filter, the PRs window shows every open pull request of the
   organizations you belong to and of your own repositories, not only those
