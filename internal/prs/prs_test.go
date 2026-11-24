@@ -36,6 +36,8 @@ func response(viewer string, nodes ...string) []byte {
 // fakeGH answers a search by its qualifier and remembers the searches asked.
 type fakeGH struct {
 	requested, authored, others []string
+	orgs                        []string // the organizations the viewer belongs to
+	orgsErr                     error    // a failure reading them
 	asked                       []string
 	err                         error
 }
@@ -48,6 +50,17 @@ func (f *fakeGH) run(_ context.Context, args ...string) ([]byte, error) {
 	for _, a := range args {
 		if s, ok := strings.CutPrefix(a, "q="); ok {
 			search = s
+		}
+		if strings.Contains(a, "organizations(") {
+			if f.orgsErr != nil {
+				return nil, f.orgsErr
+			}
+			nodes := make([]string, len(f.orgs))
+			for i, o := range f.orgs {
+				nodes[i] = fmt.Sprintf(`{"login":%q}`, o)
+			}
+			return []byte(fmt.Sprintf(`{"data":{"viewer":{"login":"me","organizations":{"nodes":[%s]}}}}`,
+				strings.Join(nodes, ","))), nil
 		}
 	}
 	f.asked = append(f.asked, search)
@@ -144,14 +157,51 @@ func TestTheFilterSearchesEachOrgAndRepoAndKeepsOneCopy(t *testing.T) {
 	}
 }
 
-func TestNoFilterSearchesEverywhere(t *testing.T) {
-	gh := &fakeGH{}
+func TestNoFilterSearchesYourReviewsAndPRsEverywhere(t *testing.T) {
+	gh := &fakeGH{orgs: []string{"acme"}}
 	if _, err := Load(context.Background(), gh.run, Filter{}); err != nil {
 		t.Fatal(err)
 	}
 	for _, s := range gh.asked {
-		if strings.Contains(s, "org:") || strings.Contains(s, "repo:") {
+		mine := strings.Contains(s, "review-requested:@me") || strings.Contains(s, "author:@me")
+		if mine && (strings.Contains(s, "org:") || strings.Contains(s, "repo:") || strings.Contains(s, "user:")) {
 			t.Errorf("search %q is scoped though no filter is set", s)
+		}
+	}
+}
+
+func TestWithoutAFilterEveryOpenPROfYourOrgsAndReposShows(t *testing.T) {
+	gh := &fakeGH{orgs: []string{"acme", "tools"}, others: []string{fakePR("acme/api", 7, false, "", "", "")}}
+	in, err := Load(context.Background(), gh.run, Filter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"is:pr is:open sort:updated-desc org:acme",
+		"is:pr is:open sort:updated-desc org:tools",
+		"is:pr is:open sort:updated-desc user:me",
+	} {
+		if !strings.Contains(fmt.Sprint(gh.asked), want) {
+			t.Errorf("searches = %q, want one of %q", gh.asked, want)
+		}
+	}
+	if n := len(in.Group(OtherOpen)); n != 1 {
+		t.Errorf("a PR nobody asked you about shows %d times, want 1", n)
+	}
+}
+
+func TestWithoutAFilterAFailedOrgLookupStillShowsWhatInvolvesYou(t *testing.T) {
+	gh := &fakeGH{orgsErr: errors.New("no read:org"), others: []string{fakePR("acme/api", 7, false, "", "", "")}}
+	in, err := Load(context.Background(), gh.run, Filter{})
+	if err != nil {
+		t.Fatalf("err = %v, want the window to keep working without the org list", err)
+	}
+	if n := len(in.Group(OtherOpen)); n != 1 {
+		t.Errorf("other open PRs = %d, want 1", n)
+	}
+	for _, s := range gh.asked {
+		if strings.Contains(s, "org:") || strings.Contains(s, "user:") {
+			t.Errorf("search %q ran though the org lookup failed", s)
 		}
 	}
 }
