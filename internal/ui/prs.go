@@ -12,6 +12,7 @@ import (
 
 	"github.com/MrT-coder/bitagentshub/internal/config"
 	"github.com/MrT-coder/bitagentshub/internal/i18n"
+	"github.com/MrT-coder/bitagentshub/internal/office"
 	"github.com/MrT-coder/bitagentshub/internal/prs"
 	"github.com/MrT-coder/bitagentshub/internal/screen"
 )
@@ -155,6 +156,7 @@ type prRow struct {
 	text  string
 	style screen.Style
 	pr    int
+	spans []prSpan // when set, the row is drawn from these instead of text
 }
 
 func (m Model) prRows() []prRow {
@@ -162,69 +164,157 @@ func (m Model) prRows() []prRow {
 	p := m.pulls
 	switch {
 	case p == nil || !p.cfg.Enabled:
-		return []prRow{{i18n.T("Pull requests are off ([prs] in the config turns them on)."), dim, -1}}
+		return []prRow{{i18n.T("Pull requests are off ([prs] in the config turns them on)."), dim, -1, nil}}
 	case p.status == prs.NotInstalled:
-		return []prRow{{i18n.T("gh is not installed. Get it at https://cli.github.com and press r."), modalBorder(), -1}}
+		return []prRow{{i18n.T("gh is not installed. Get it at https://cli.github.com and press r."), modalBorder(), -1, nil}}
 	case p.status == prs.NotLoggedIn:
-		return []prRow{{i18n.T("gh is not logged in. Run gh auth login in a terminal and press r."), modalBorder(), -1}}
+		return []prRow{{i18n.T("gh is not logged in. Run gh auth login in a terminal and press r."), modalBorder(), -1, nil}}
 	}
-	rows := []prRow{{prsFilterLine(p.cfg), dim, -1}}
+	rows := []prRow{{prsFilterLine(p.cfg), dim, -1, nil}}
 	if p.editing {
 		rows = []prRow{
-			{i18n.T("filter: ") + p.draft + "█", modalBorder(), -1},
-			{i18n.T("Orgs such as acme, repos such as owner/name. Empty shows every pull request."), dim, -1},
+			{i18n.T("filter: ") + p.draft + "█", modalBorder(), -1, nil},
+			{i18n.T("Orgs such as acme, repos such as owner/name. Empty shows every pull request."), dim, -1, nil},
 		}
 	}
 	if p.saveErr != "" {
-		rows = append(rows, prRow{i18n.Tf("Could not save the filter: %s", p.saveErr), modalBorder(), -1})
+		rows = append(rows, prRow{i18n.Tf("Could not save the filter: %s", p.saveErr), modalBorder(), -1, nil})
 	}
 	if !p.loaded {
-		return append(rows, prRow{i18n.T("Loading pull requests…"), dim, -1})
+		return append(rows, prRow{i18n.T("Loading pull requests…"), dim, -1, nil})
 	}
 	if p.err != nil {
-		rows = append(rows, prRow{i18n.Tf("Could not read pull requests: %s", p.err), modalBorder(), -1})
+		rows = append(rows, prRow{i18n.Tf("Could not read pull requests: %s", p.err), modalBorder(), -1, nil})
 	}
-	heading := text
-	heading.Bold = true
 	n := 0
 	for _, g := range prs.Groups() {
 		list := p.inbox.Group(g)
-		rows = append(rows, prRow{prsGroupLabel(g, len(list)), heading, -1})
+		rows = append(rows, prRow{prsGroupLabel(g, len(list)), prsGroupStyle(g), -1, nil})
 		for _, pr := range list {
-			marker, st := "  ", text
+			marker := "  "
 			if n == p.sel {
-				marker, st.Reverse = "▸ ", true
+				marker = "▸ "
 			}
-			line := fmt.Sprintf("%s%s#%d  %s  @%s", marker, pr.Repo, pr.Number, pr.Title, pr.Author)
-			if tag := prStatus(pr); tag != "" {
-				line += "  " + tag
+			spans := append([]prSpan{{marker, text}, {prStateGlyph(pr) + " ", prStateStyle(pr)},
+				{cleanText(fmt.Sprintf("%s#%d  %s", pr.Repo, pr.Number, pr.Title)), text},
+				{cleanText("  @" + pr.Author), dim}}, prTagSpans(pr)...)
+			plain := ""
+			for i := range spans {
+				if n == p.sel {
+					spans[i].style.Reverse = true
+				}
+				plain += spans[i].text
 			}
-			rows = append(rows, prRow{cleanText(line), st, n})
+			rows = append(rows, prRow{plain, text, n, spans})
 			n++
 		}
 	}
 	return rows
 }
 
-// prStatus is the short state of a pull request: merged, closed or draft,
-// who approved it and who asked for changes.
-func prStatus(pr prs.PR) string {
-	var parts []string
+// prSpan is a piece of a row in one style.
+type prSpan struct {
+	text  string
+	style screen.Style
+}
+
+// prColor is a pull request state color on the window's background.
+func prColor(c screen.RGB) screen.Style { return screen.Fg(c).WithBg(modalBg()) }
+
+// prStateStyle is the style of a pull request's state: green when open, grey
+// for a draft, purple when merged, red when closed.
+func prStateStyle(pr prs.PR) screen.Style {
+	c := office.PR()
 	switch {
 	case pr.State == "MERGED":
-		parts = append(parts, i18n.T("merged"))
+		return prColor(c.Merged)
 	case pr.State == "CLOSED":
-		parts = append(parts, i18n.T("closed"))
+		return prColor(c.Closed)
 	case pr.Draft:
-		parts = append(parts, i18n.T("draft"))
+		return prColor(c.Draft)
+	}
+	return prColor(c.Open)
+}
+
+// prStateGlyph is a shape for the state, so it reads without color too.
+func prStateGlyph(pr prs.PR) string {
+	switch {
+	case pr.State == "MERGED":
+		return "◆"
+	case pr.State == "CLOSED":
+		return "✕"
+	case pr.Draft:
+		return "○"
+	}
+	return "●"
+}
+
+// prTagSpans is what follows a pull request's name: its state in words when
+// it is not open, who approved it and who asked for changes, and its checks.
+func prTagSpans(pr prs.PR) []prSpan {
+	c := office.PR()
+	var out []prSpan
+	add := func(text string, st screen.Style) { out = append(out, prSpan{"  " + text, st}) }
+	switch {
+	case pr.State == "MERGED":
+		add(i18n.T("merged"), prStateStyle(pr))
+	case pr.State == "CLOSED":
+		add(i18n.T("closed"), prStateStyle(pr))
+	case pr.Draft:
+		add(i18n.T("draft"), prStateStyle(pr))
 	}
 	if len(pr.Approvers) > 0 {
-		parts = append(parts, "✓ "+strings.Join(pr.Approvers, ","))
+		add(cleanText("✓ "+strings.Join(pr.Approvers, ",")), prColor(c.Open))
 	}
 	if len(pr.ChangesBy) > 0 {
-		parts = append(parts, "✗ "+strings.Join(pr.ChangesBy, ","))
+		add(cleanText("✗ "+strings.Join(pr.ChangesBy, ",")), prColor(c.Closed))
 	}
-	return strings.Join(parts, " · ")
+	if pr.State == "" || pr.State == "OPEN" {
+		switch pr.Checks {
+		case "SUCCESS":
+			add("CI ✓", prColor(c.Open))
+		case "FAILURE", "ERROR":
+			add("CI ✗", prColor(c.Closed))
+		case "PENDING", "EXPECTED":
+			add("CI …", prColor(c.Pending))
+		}
+	}
+	return out
+}
+
+// prsGroupStyle is the heading of a group: bold, tinted by what the group
+// asks of you.
+func prsGroupStyle(g prs.Group) screen.Style {
+	st := modalText()
+	st.Bold = true
+	c := office.PR()
+	switch g {
+	case prs.NeedsAction:
+		st = prColor(c.Closed)
+	case prs.ReadyToMerge:
+		st = prColor(c.Open)
+	case prs.Drafts:
+		st = prColor(c.Draft)
+	case prs.NeedsReview, prs.NeedsTeamReview:
+		st = prColor(c.Pending)
+	}
+	st.Bold = true
+	return st
+}
+
+// drawSpans paints spans from x on row y, as far as room cells go, and
+// returns where it stopped.
+func drawSpans(buf *screen.Buffer, x, y, room int, spans []prSpan) int {
+	for _, sp := range spans {
+		if room <= 0 {
+			break
+		}
+		t := truncate(sp.text, room)
+		buf.Text(x, y, t, sp.style)
+		n := len([]rune(t))
+		x, room = x+n, room-n
+	}
+	return x
 }
 
 func prsFilterLine(c config.PRs) string {
@@ -439,6 +529,11 @@ func (m Model) drawPRs(buf *screen.Buffer) {
 		first = clampScroll(m.pulls.scroll, len(rows), room)
 	}
 	for i, r := range rows[first:min(len(rows), first+room)] {
+		if r.spans != nil {
+			buf.Fill(x+2, y+2+i, w-4, 1, ' ', r.spans[0].style)
+			drawSpans(buf, x+2, y+2+i, w-4, r.spans)
+			continue
+		}
 		buf.Text(x+2, y+2+i, truncate(r.text, w-4), r.style)
 	}
 }

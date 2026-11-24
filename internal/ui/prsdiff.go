@@ -288,12 +288,15 @@ func (m Model) drawDiff(buf *screen.Buffer) {
 
 	title := modalText()
 	title.Bold = true
-	status := prStatus(d.pr)
-	room0 := max(0, inner-len([]rune(status))-2)
-	buf.Text(x+2, y+1, truncate(cleanText(fmt.Sprintf("%s#%d  %s  @%s", d.pr.Repo, d.pr.Number, d.pr.Title, d.pr.Author)), room0), title)
-	if status != "" {
-		buf.Text(x+2+inner-len([]rune(status)), y+1, status, modalDim())
+	tags := prTagSpans(d.pr)
+	tagW := 0
+	for _, sp := range tags {
+		tagW += len([]rune(sp.text))
 	}
+	room0 := max(0, inner-tagW-2)
+	buf.Text(x+2, y+1, prStateGlyph(d.pr)+" ", prStateStyle(d.pr))
+	buf.Text(x+4, y+1, truncate(cleanText(fmt.Sprintf("%s#%d  %s  @%s", d.pr.Repo, d.pr.Number, d.pr.Title, d.pr.Author)), max(0, room0-2)), title)
+	drawSpans(buf, x+2+inner-tagW, y+1, tagW, tags)
 
 	switch {
 	case d.loading:

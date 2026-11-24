@@ -42,6 +42,9 @@ type Theme struct {
 	// The windows (terminals, board, settings): background, text and
 	// border. Terminal text without colors of its own uses them too.
 	UIBg, UIText, UIAccent screen.RGB
+	// PR is the color of each pull request state in the PRs window. A theme
+	// that leaves one out gets it from its terminal palette; see resolvePR.
+	PR PRColors
 	// Terminal recolors the 16 ANSI colors programs ask for; unset, they
 	// keep the emulator's own.
 	Terminal screen.Palette
@@ -202,6 +205,7 @@ func init() { SetTheme(BuiltinTheme()) }
 // on. t comes from BuiltinTheme or LoadTheme.
 func SetTheme(t Theme) {
 	t.resolveLetters()
+	t.resolvePR()
 	active.Store(&t)
 }
 
@@ -283,6 +287,7 @@ func BuiltinTheme() Theme {
 		UIBg:     rgb(0x16181d),
 		UIText:   rgb(0xdcdfe4),
 		UIAccent: rgb(0x61afef),
+		PR:       PRColors{Open: rgb(0x3fb950), Draft: rgb(0x8b949e), Merged: rgb(0xa371f7), Closed: rgb(0xf85149), Pending: rgb(0xd29922)},
 
 		poses:  builtinPoses(),
 		pieces: builtinPieces(),
@@ -374,6 +379,11 @@ func (t *Theme) colorFields() []colorField {
 		{"ui", "background", &t.UIBg, nil},
 		{"ui", "text", &t.UIText, nil},
 		{"ui", "accent", &t.UIAccent, nil},
+		{"ui", "pr_open", &t.PR.Open, nil},
+		{"ui", "pr_draft", &t.PR.Draft, nil},
+		{"ui", "pr_merged", &t.PR.Merged, nil},
+		{"ui", "pr_closed", &t.PR.Closed, nil},
+		{"ui", "pr_pending", &t.PR.Pending, nil},
 	}
 }
 
